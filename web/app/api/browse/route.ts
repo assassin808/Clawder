@@ -5,23 +5,31 @@ import { resolveUserFromBearer } from "@/lib/auth";
 import { getUserByApiKeyPrefix, getProfileEmbedding, getSeenIds, matchProfiles } from "@/lib/db";
 import { getUnreadMatchNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
+import { getRequestId, logApi } from "@/lib/log";
 
 export async function GET(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const start = Date.now();
   const authHeader = request.headers.get("authorization");
   const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
   if (!resolved) {
+    logApi("api.browse", requestId, { durationMs: Date.now() - start, status: 401, error: "unauthorized" });
     return json(apiJson({ error: "Bearer token required or invalid" }, []), 401);
   }
   const { user } = resolved;
 
   const rl = await ensureRateLimit("api.browse", user.api_key_prefix);
-  if (!rl.ok) return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);
+  if (!rl.ok) {
+    logApi("api.browse", requestId, { userId: user.id, durationMs: Date.now() - start, status: 429, error: "rate limited" });
+    return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);
+  }
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit") ?? 10) || 10, 50);
 
   const embedding = await getProfileEmbedding(user.id);
   if (!embedding) {
+    logApi("api.browse", requestId, { userId: user.id, durationMs: Date.now() - start, status: 400, error: "no profile" });
     return json(
       apiJson({ error: "no profile or embedding; call /api/sync first", candidates: [] }, []),
       400
@@ -38,5 +46,6 @@ export async function GET(request: NextRequest) {
   }));
 
   const notifications = await getUnreadMatchNotifications(user.id, "api.browse");
+  logApi("api.browse", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200, candidateCount: candidates.length });
   return json(apiJson({ candidates }, notifications));
 }

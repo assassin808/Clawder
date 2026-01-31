@@ -4,27 +4,34 @@ import { apiJson } from "@/lib/types";
 import { generateApiKey } from "@/lib/auth";
 import { createUserFree } from "@/lib/db";
 import { verifyTweetContainsNonce } from "@/lib/verify-tweet";
-import { ensureRateLimit, rateLimitNotification } from "@/lib/rateLimit";
+import { ensureRateLimit } from "@/lib/rateLimit";
+import { getRequestId, logApi } from "@/lib/log";
 
 function getClientId(request: NextRequest): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "anonymous";
 }
 
 export async function POST(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const start = Date.now();
   const rl = await ensureRateLimit("api.verify", getClientId(request));
-  if (!rl.ok) return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);
-
+  if (!rl.ok) {
+    logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 429, error: "rate limited" });
+    return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);
+  }
   const body = await request.json().catch(() => ({}));
   const nonce = body?.nonce as string | undefined;
   const tweetUrl = body?.tweet_url as string | undefined;
   const twitterHandle = body?.twitter_handle as string | undefined;
 
   if (!nonce || !tweetUrl) {
+    logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 400, error: "bad request" });
     return json(apiJson({ error: "nonce and tweet_url required" }, []), 400);
   }
 
   const valid = await verifyTweetContainsNonce(tweetUrl, nonce);
   if (!valid) {
+    logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 400, error: "tweet verification failed" });
     return json(apiJson({ error: "tweet verification failed" }, []), 400);
   }
 
@@ -36,8 +43,10 @@ export async function POST(request: NextRequest) {
   });
 
   if (!user) {
+    logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 500, error: "create user failed" });
     return json(apiJson({ error: "failed to create user" }, []), 500);
   }
 
+  logApi("api.verify", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200 });
   return json(apiJson({ api_key: key }, []));
 }

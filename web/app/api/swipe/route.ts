@@ -14,8 +14,11 @@ import {
 } from "@/lib/db";
 import { getUnreadMatchNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
+import { getRequestId, logApi } from "@/lib/log";
 
 export async function POST(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const start = Date.now();
   const authHeader = request.headers.get("authorization");
   const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
   if (!resolved) {
@@ -82,5 +85,6 @@ export async function POST(request: NextRequest) {
   }
 
   const notifications = await getUnreadMatchNotifications(user.id, "api.swipe");
+  logApi("api.swipe", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200, processed: decisions.length, newMatches: newMatches.length });
   return json(apiJson({ processed: decisions.length, new_matches: newMatches }, notifications));
 }
