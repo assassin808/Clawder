@@ -94,6 +94,7 @@ export default function FreePage() {
         return;
       }
       sessionStorage.setItem("clawder_api_key", apiKey);
+      localStorage.setItem("clawder_api_key", apiKey);
       router.push("/key");
     } catch {
       setError("Network error. Please try again.");
@@ -129,6 +130,7 @@ export default function FreePage() {
         return;
       }
       sessionStorage.setItem("clawder_api_key", apiKey);
+      localStorage.setItem("clawder_api_key", apiKey);
       router.push("/key");
     } catch {
       setPromoError("Network error. Please try again.");

@@ -47,21 +47,27 @@
   --shadow-card: var(--shadow-card);
 }
 
-/* Tinder-style dating app: warm red/coral primary, rounded cards, subtle shadows */
+/* Digital Aquarium (Issue 008): whole-theme tokens + glass */
 :root {
+  --bg-canvas: #FAFAFA;
+  --color-primary: #FF4757;
+  --color-secondary: #5352ED;
+  --glass-bg: rgba(255, 255, 255, 0.8);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.9);
+  --glass-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
   --radius: 1rem;
-  --radius-card: 1.25rem;
-  --shadow-card: 0 4px 24px oklch(0 0 0 / 0.06);
-  --background: oklch(0.985 0 0);
+  --radius-card: 1.5rem;
+  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.06);
+  --background: var(--bg-canvas);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.58 0.22 12);
+  --primary: var(--color-primary);
   --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0.01 12);
-  --secondary-foreground: oklch(0.25 0 0);
+  --secondary: var(--color-secondary);
+  --secondary-foreground: oklch(0.99 0 0);
   --muted: oklch(0.96 0.005 12);
   --muted-foreground: oklch(0.5 0 0);
   --accent: oklch(0.96 0.02 12);
@@ -69,20 +75,20 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.91 0 0);
   --input: oklch(0.91 0 0);
-  --ring: oklch(0.58 0.22 12);
-  --chart-1: oklch(0.58 0.22 12);
-  --chart-2: oklch(0.6 0.118 184.704);
+  --ring: var(--color-primary);
+  --chart-1: var(--color-primary);
+  --chart-2: var(--color-secondary);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.99 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.58 0.22 12);
+  --sidebar-primary: var(--color-primary);
   --sidebar-primary-foreground: oklch(0.99 0 0);
   --sidebar-accent: oklch(0.96 0.01 12);
   --sidebar-accent-foreground: oklch(0.205 0 0);
   --sidebar-border: oklch(0.91 0 0);
-  --sidebar-ring: oklch(0.58 0.22 12);
+  --sidebar-ring: var(--color-primary);
 }
 
 .dark {
@@ -123,8 +129,72 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
+  }
+  /* Hide scrollbar, keep scroll (Issue 008) */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Glass card surface (Issue 008) */
+.glass {
+  background: var(--glass-bg);
+  border: var(--glass-border);
+  box-shadow: var(--glass-shadow);
+  backdrop-filter: blur(12px);
+}
+
+/* Aurora background — ReactBits-style; Color Guide: secondary→primary, low opacity, slow (Digital Aquarium) */
+@keyframes aurora-aquarium {
+  from {
+    background-position: 50% 50%, 50% 50%;
+  }
+  to {
+    background-position: 350% 50%, 350% 50%;
+  }
+}
+.animate-aurora-aquarium {
+  animation: aurora-aquarium 28s linear infinite;
+}
+
+/* Shimmer loader — Uiverse-style; Color Guide: low-contrast (secondary/10) */
+@keyframes shimmer-aquarium {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.shimmer-aquarium {
+  background: linear-gradient(
+    90deg,
+    var(--bg-canvas, #FAFAFA) 0%,
+    rgba(83, 82, 237, 0.08) 50%,
+    var(--bg-canvas, #FAFAFA) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer-aquarium 1.8s ease-in-out infinite;
+}
+
+/* Heart burst — Uiverse-style; Color Guide: primary #FF4757 (review-like only) */
+@keyframes heart-burst-dot {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translate(calc(-50% + var(--bx, 0px)), calc(-50% + var(--by, 0px))) scale(2);
+    opacity: 0;
   }
 }
 

@@ -10,6 +10,73 @@ type MatchRow = {
   created_at: string;
 };
 
+export type EnqueueNotificationParams = {
+  type: string;
+  source: string;
+  dedupe_key: string;
+  payload: Record<string, unknown>;
+};
+
+/** Enqueue a notification (upsert by user_id, dedupe_key). */
+export async function enqueueNotification(
+  userId: string,
+  params: EnqueueNotificationParams
+): Promise<void> {
+  if (!supabase) return;
+  await supabase.from("notifications").upsert(
+    {
+      user_id: userId,
+      type: params.type,
+      source: params.source,
+      dedupe_key: params.dedupe_key,
+      payload: params.payload,
+      delivered_at: null,
+    },
+    { onConflict: "user_id,dedupe_key" }
+  );
+}
+
+const QUEUED_NOTIFICATIONS_LIMIT = 50;
+
+/** Fetch undelivered notifications from queue, map to NotificationItem, mark delivered. */
+export async function getUnreadQueuedNotifications(
+  userId: string,
+  source: string
+): Promise<NotificationItem[]> {
+  if (!supabase) return [];
+  const { data: rows, error } = await supabase
+    .from("notifications")
+    .select("id, type, dedupe_key, payload, created_at")
+    .eq("user_id", userId)
+    .is("delivered_at", null)
+    .order("created_at", { ascending: true })
+    .limit(QUEUED_NOTIFICATIONS_LIMIT);
+  if (error || !rows?.length) return [];
+  const items: NotificationItem[] = (rows as { id: string; type: string; dedupe_key: string; payload: Record<string, unknown>; created_at: string }[]).map(
+    (r) => ({
+      id: crypto.randomUUID(),
+      type: r.type,
+      ts: r.created_at,
+      severity: "info" as const,
+      dedupe_key: r.dedupe_key,
+      source,
+      payload: r.payload,
+    })
+  );
+  const now = new Date().toISOString();
+  for (const row of rows as { id: string }[]) {
+    await supabase.from("notifications").update({ delivered_at: now }).eq("id", row.id);
+  }
+  return items;
+}
+
+/** Match notifications (from matches table) + queued notifications (from notifications table). */
+export async function getUnreadNotifications(userId: string, source: string): Promise<NotificationItem[]> {
+  const matchItems = await getUnreadMatchNotifications(userId, source);
+  const queuedItems = await getUnreadQueuedNotifications(userId, source);
+  return [...matchItems, ...queuedItems];
+}
+
 export async function getUnreadMatchNotifications(
   userId: string,
   source: string

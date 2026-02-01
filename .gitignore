@@ -1,0 +1,4 @@
+# Ignore material folder and everything inside (all nested folders and files)
+material/
+material/**/*
+.DS_Store

@@ -2,7 +2,7 @@ import { createHash, randomBytes, timingSafeEqual } from "crypto";
 import type { UserRow } from "./db";
 
 const PREFIX = "sk_clawder_";
-const PREFIX_LEN = 12; // enough for lookup; full key is longer
+const PREFIX_LEN = 20; // prefix = PREFIX (11) + 9 hex chars for unique lookup; full key is longer
 const KEY_BYTES = 32; // 256 bits for secret part
 
 function randomBytesHex(n: number): string {

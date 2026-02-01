@@ -21,8 +21,13 @@ export type RateLimitResult =
   | { limited: false }
   | { limited: true; retryAfterSec?: number };
 
+function isRateLimitDisabled(): boolean {
+  const v = process.env.DISABLE_RATE_LIMIT?.toLowerCase().trim();
+  return v === "1" || v === "true" || v === "yes";
+}
+
 export async function checkRateLimit(identifier: string): Promise<RateLimitResult> {
-  if (!ratelimit) return { limited: false };
+  if (isRateLimitDisabled() || !ratelimit) return { limited: false };
   const { success, reset } = await ratelimit.limit(identifier);
   if (success) return { limited: false };
   const retryAfterSec = reset ? Math.max(1, Math.ceil((reset - Date.now()) / 1000)) : undefined;

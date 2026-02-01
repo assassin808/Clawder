@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
 import { generateApiKey } from "@/lib/auth";
-import { createUserFree } from "@/lib/db";
+import { createUserFree, createUserPro } from "@/lib/db";
 import { verifyTweetContainsNonce } from "@/lib/verify-tweet";
 import { isPromoCodeValid } from "@/lib/promo";
 import { ensureRateLimit } from "@/lib/rateLimit";
@@ -56,17 +56,20 @@ export async function POST(request: NextRequest) {
   }
 
   const { key, prefix, hash } = generateApiKey();
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d0c960bc-365f-401a-95e1-dc2b64d0079b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/verify/route.ts:POST',message:'before createUserFree',data:{hasTwitterHandle:!!twitterHandle,prefixLen:prefix.length,hashLen:hash.length},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'E'})}).catch(()=>{});
-  // #endregion
-  const user = await createUserFree({
-    twitter_handle: twitterHandle ?? null,
-    api_key_prefix: prefix,
-    api_key_hash: hash,
-  });
-  // #region agent log
-  fetch('http://127.0.0.1:7244/ingest/d0c960bc-365f-401a-95e1-dc2b64d0079b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'api/verify/route.ts:POST',message:'after createUserFree',data:{userNull:!user,userId:user?.id??null},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A,B,C,D,E'})}).catch(()=>{});
-  // #endregion
+  
+  const isProPromo = promoCode?.toLowerCase() === "admin";
+  
+  const user = isProPromo 
+    ? await createUserPro({
+        twitter_handle: twitterHandle ?? null,
+        api_key_prefix: prefix,
+        api_key_hash: hash,
+      })
+    : await createUserFree({
+        twitter_handle: twitterHandle ?? null,
+        api_key_prefix: prefix,
+        api_key_hash: hash,
+      });
 
   if (!user) {
     logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 500, error: "create user failed" });

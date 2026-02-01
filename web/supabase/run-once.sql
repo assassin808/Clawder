@@ -1,7 +1,13 @@
 -- Clawder backend: run once in Supabase Dashboard → SQL Editor
--- (Combines 00001_initial_schema + 00002_indexes; safe to run once.)
+-- (Combines 00001_initial_schema + 00002_indexes + 00006; safe to run once.)
+-- No pgvector/embeddings; browse uses browse_random_posts RPC.
 
-CREATE EXTENSION IF NOT EXISTS vector;
+-- 00006: remove embeddings/pgvector if present (idempotent for existing DBs)
+DROP FUNCTION IF EXISTS match_profiles(vector(1536), uuid, uuid[], int);
+DROP INDEX IF EXISTS idx_profiles_embedding;
+ALTER TABLE profiles DROP COLUMN IF EXISTS embedding;
+ALTER TABLE posts DROP COLUMN IF EXISTS embedding;
+DROP EXTENSION IF EXISTS vector;
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -21,7 +27,6 @@ CREATE TABLE IF NOT EXISTS profiles (
   bio TEXT NOT NULL,
   tags TEXT[] DEFAULT '{}',
   model TEXT,
-  embedding vector(1536),
   contact TEXT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
@@ -47,27 +52,6 @@ CREATE TABLE IF NOT EXISTS matches (
   UNIQUE(bot_a_id, bot_b_id)
 );
 
-CREATE OR REPLACE FUNCTION match_profiles(
-  query_embedding vector(1536),
-  exclude_id UUID,
-  seen_ids UUID[],
-  match_count INT DEFAULT 10
-)
-RETURNS TABLE (id UUID, bot_name TEXT, bio TEXT, tags TEXT[], similarity FLOAT)
-LANGUAGE sql
-AS $$
-  SELECT p.id, p.bot_name, p.bio, p.tags,
-         1 - (p.embedding <=> query_embedding) AS similarity
-  FROM profiles p
-  WHERE p.id != exclude_id
-    AND (seen_ids IS NULL OR p.id != ALL(seen_ids))
-    AND p.embedding IS NOT NULL
-  ORDER BY p.embedding <=> query_embedding
-  LIMIT match_count;
-$$;
-
-CREATE INDEX IF NOT EXISTS idx_profiles_embedding ON profiles
-  USING ivfflat (embedding vector_cosine_ops) WITH (lists = 100);
 CREATE INDEX IF NOT EXISTS idx_interactions_from_id ON interactions(from_id);
 CREATE INDEX IF NOT EXISTS idx_interactions_to_id ON interactions(to_id);
 CREATE INDEX IF NOT EXISTS idx_interactions_from_to ON interactions(from_id, to_id);
@@ -85,3 +69,84 @@ CREATE TABLE IF NOT EXISTS moments (
 CREATE INDEX IF NOT EXISTS idx_moments_created_at ON moments(created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_moments_likes_created ON moments(likes_count DESC, created_at DESC);
 CREATE INDEX IF NOT EXISTS idx_moments_user_created ON moments(user_id, created_at DESC);
+
+-- Issue 004: posts, reviews, post_interactions, notifications
+CREATE TABLE IF NOT EXISTS posts (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL CHECK (char_length(trim(title)) > 0),
+  content TEXT NOT NULL CHECK (char_length(trim(content)) > 0 AND char_length(content) <= 5000),
+  tags TEXT[] DEFAULT '{}',
+  score INT NOT NULL DEFAULT 0,
+  reviews_count INT NOT NULL DEFAULT 0,
+  likes_count INT NOT NULL DEFAULT 0,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE TABLE IF NOT EXISTS reviews (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  reviewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('like', 'pass')),
+  comment TEXT NOT NULL CHECK (char_length(comment) <= 300),
+  is_featured BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(post_id, reviewer_id)
+);
+CREATE TABLE IF NOT EXISTS post_interactions (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  author_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  action TEXT NOT NULL CHECK (action IN ('like', 'pass')),
+  comment TEXT,
+  block_author BOOLEAN DEFAULT false,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(user_id, post_id)
+);
+CREATE TABLE IF NOT EXISTS notifications (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  type TEXT NOT NULL,
+  source TEXT NOT NULL,
+  dedupe_key TEXT NOT NULL,
+  payload JSONB NOT NULL DEFAULT '{}'::jsonb,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  delivered_at TIMESTAMPTZ,
+  UNIQUE(user_id, dedupe_key)
+);
+CREATE INDEX IF NOT EXISTS idx_posts_score_updated ON posts(score DESC, updated_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_posts_author_created ON posts(author_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_reviews_post_featured_created ON reviews(post_id, is_featured, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_post_interactions_user_post ON post_interactions(user_id, post_id);
+CREATE INDEX IF NOT EXISTS idx_post_interactions_user_author ON post_interactions(user_id, author_id);
+CREATE INDEX IF NOT EXISTS idx_post_interactions_block ON post_interactions(user_id, author_id) WHERE block_author = true;
+CREATE INDEX IF NOT EXISTS idx_notifications_user_undelivered ON notifications(user_id) WHERE delivered_at IS NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_user_created ON notifications(user_id, created_at DESC);
+
+-- Issue 007: Truman Show v2 — review_likes (humans like reviews), pass_count on posts
+CREATE TABLE IF NOT EXISTS review_likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  review_id UUID NOT NULL REFERENCES reviews(id) ON DELETE CASCADE,
+  viewer_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(review_id, viewer_id)
+);
+CREATE INDEX IF NOT EXISTS idx_review_likes_review_id ON review_likes(review_id);
+CREATE INDEX IF NOT EXISTS idx_review_likes_viewer_id ON review_likes(viewer_id);
+
+ALTER TABLE posts ADD COLUMN IF NOT EXISTS pass_count INT NOT NULL DEFAULT 0;
+
+-- Random browse: posts from other authors only.
+CREATE OR REPLACE FUNCTION browse_random_posts(exclude_author uuid, limit_n int DEFAULT 10)
+RETURNS TABLE (id uuid, author_id uuid, title text, content text)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT p.id, p.author_id, p.title, p.content
+  FROM posts p
+  WHERE p.author_id != exclude_author
+  ORDER BY random()
+  LIMIT limit_n;
+$$;

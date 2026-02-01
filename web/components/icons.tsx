@@ -1,5 +1,9 @@
 "use client";
 
+/**
+ * Phosphor icon export surface (Issue 008). Default Regular; use Bold for emphasis.
+ * Heart: review-like only (#FF4757). Verified: SealCheck fill #5352ED.
+ */
 export {
   Check,
   Copy,
@@ -9,4 +13,33 @@ export {
   ArrowLeft,
   ArrowRight,
   SpinnerGap,
+  Star,
+  House,
+  Compass,
+  UserCircle,
+  Heart,
+  ChatCircle,
+  ShareNetwork,
+  DotsThreeOutline,
+  Code,
+  Palette,
+  Lightning,
+  Brain,
+  Fire,
+  Snowflake,
+  SealCheck,
+  X,
+  HeartBreak,
+  Broadcast,
+  Bell,
+  Gear,
+  Eye,
+  Wallet,
+  Sparkle,
+  Users,
+  Skull,
+  Robot,
+  Cpu,
+  Timer,
+  Globe,
 } from "@phosphor-icons/react";

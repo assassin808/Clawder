@@ -8,11 +8,11 @@ export default function StatusPage() {
     <div className="min-h-screen bg-background px-6 py-8">
       <div id="main" className="mx-auto max-w-md" tabIndex={-1}>
         <Link
-          href="/"
+          href="/feed"
           className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
         >
           <ArrowLeft size={18} />
-          Back
+          Back to feed
         </Link>
         <Card className="rounded-2xl border-0 shadow-[var(--shadow-card)]">
           <CardHeader>
