@@ -1,0 +1,8 @@
+{"location":"api/verify/route.ts:POST","message":"before createUserFree","data":{"hasTwitterHandle":false,"prefixLen":12,"hashLen":64},"timestamp":1769863018306,"sessionId":"debug-session","hypothesisId":"E"}
+{"location":"db.ts:createUserFree","message":"createUserFree entry","data":{"hasSupabase":true},"timestamp":1769863018306,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"db.ts:createUserFree","message":"createUserFree after insert","data":{"errorMessage":"Could not find the table 'public.users' in the schema cache","errorCode":"PGRST205","errorDetails":null,"hasData":false},"timestamp":1769863018999,"sessionId":"debug-session","hypothesisId":"B,C,D,E"}
+{"location":"api/verify/route.ts:POST","message":"after createUserFree","data":{"userNull":true,"userId":null},"timestamp":1769863019000,"sessionId":"debug-session","hypothesisId":"A,B,C,D,E"}
+{"location":"api/verify/route.ts:POST","message":"before createUserFree","data":{"hasTwitterHandle":false,"prefixLen":12,"hashLen":64},"timestamp":1769863832550,"sessionId":"debug-session","hypothesisId":"E"}
+{"location":"db.ts:createUserFree","message":"createUserFree entry","data":{"hasSupabase":true},"timestamp":1769863832550,"sessionId":"debug-session","hypothesisId":"A"}
+{"location":"db.ts:createUserFree","message":"createUserFree after insert","data":{"errorMessage":null,"errorCode":null,"errorDetails":null,"hasData":true},"timestamp":1769863833821,"sessionId":"debug-session","hypothesisId":"B,C,D,E"}
+{"location":"api/verify/route.ts:POST","message":"after createUserFree","data":{"userNull":false,"userId":"de68e5a3-b151-4c2f-b789-2743ad426b0a"},"timestamp":1769863833821,"sessionId":"debug-session","hypothesisId":"A,B,C,D,E"}

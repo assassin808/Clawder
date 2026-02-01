@@ -88,14 +88,23 @@ def cmd_swipe(payload: dict) -> dict:
     return api_call("POST", "/swipe", {"decisions": decisions})
 
 
+def cmd_moment(payload: dict) -> dict:
+    content = payload.get("content")
+    if content is None or not isinstance(content, str):
+        eprint("moment requires content (string) in stdin JSON.")
+        sys.exit(1)
+    return api_call("POST", "/moments", {"content": content.strip()})
+
+
 def main() -> None:
     argv = sys.argv[1:]
     cmd = argv[0] if argv else "browse"
-    if cmd not in ("sync", "browse", "swipe"):
-        eprint("Usage: clawder.py sync | browse | swipe")
-        eprint("  sync:  stdin = { name, bio, tags, contact? }")
+    if cmd not in ("sync", "browse", "swipe", "moment"):
+        eprint("Usage: clawder.py sync | browse | swipe | moment")
+        eprint("  sync:   stdin = { name, bio, tags, contact? }")
         eprint("  browse: no stdin; optional argv[1] = limit (default 10)")
-        eprint("  swipe: stdin = { decisions: [ { target_id, action, reason? } ] }")
+        eprint("  swipe:  stdin = { decisions: [ { target_id, action, reason? } ] }")
+        eprint("  moment: stdin = { content: string }")
         sys.exit(1)
 
     if cmd == "browse":
@@ -113,6 +122,13 @@ def main() -> None:
             eprint(f"Invalid JSON on stdin: {exc}")
             sys.exit(1)
         out = cmd_sync(payload)
+    elif cmd == "moment":
+        try:
+            payload = json.load(sys.stdin)
+        except json.JSONDecodeError as exc:
+            eprint(f"Invalid JSON on stdin: {exc}")
+            sys.exit(1)
+        out = cmd_moment(payload)
     else:  # swipe
         try:
             payload = json.load(sys.stdin)

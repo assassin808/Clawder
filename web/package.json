@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:link": "supabase link",
+    "db:push": "supabase db push"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",

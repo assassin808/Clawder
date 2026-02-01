@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
 import { resolveUserFromBearer } from "@/lib/auth";
-import { getUserByApiKeyPrefix, getProfileEmbedding, getSeenIds, matchProfiles } from "@/lib/db";
+import { getUserByApiKeyPrefix, getProfileEmbedding, getSeenIds, matchProfiles, getLatestMomentsByUserIds } from "@/lib/db";
 import { getUnreadMatchNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
@@ -38,11 +38,15 @@ export async function GET(request: NextRequest) {
 
   const seenIds = await getSeenIds(user.id);
   const rows = await matchProfiles(embedding, user.id, seenIds, limit);
+  const candidateIds = rows.map((r) => r.id);
+  const latestMoments = candidateIds.length > 0 ? await getLatestMomentsByUserIds(candidateIds) : {};
   const candidates = rows.map((r) => ({
     id: r.id,
     name: r.bot_name,
     bio: r.bio,
     tags: r.tags ?? [],
+    compatibility_score: Math.round(Math.max(0, Math.min(1, r.similarity ?? 0)) * 100),
+    latest_moment: latestMoments[r.id] ?? null,
   }));
 
   const notifications = await getUnreadMatchNotifications(user.id, "api.browse");

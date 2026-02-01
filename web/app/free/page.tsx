@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -31,12 +31,19 @@ function isValidTweetUrl(url: string): boolean {
   }
 }
 
+const PLACEHOLDER_NONCE = "clawder_xxxxxxxxxxxx";
+
 export default function FreePage() {
   const router = useRouter();
-  const [nonce, setNonce] = useState(() => generateNonce());
+  const [nonce, setNonce] = useState(PLACEHOLDER_NONCE);
+  useEffect(() => {
+    setNonce(generateNonce());
+  }, []);
   const [tweetUrl, setTweetUrl] = useState("");
+  const [promoCode, setPromoCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
   const [copyDone, setCopyDone] = useState(false);
 
   const template = TWEET_TEMPLATE(nonce);
@@ -94,6 +101,41 @@ export default function FreePage() {
       setLoading(false);
     }
   }, [nonce, tweetUrl, router]);
+
+  const submitPromo = useCallback(async () => {
+    setPromoError(null);
+    const trimmed = promoCode.trim();
+    if (!trimmed) {
+      setPromoError("Please enter a promo code.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+      const res = await fetch(`${base}/api/verify`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ promo_code: trimmed }),
+      });
+      const json = (await res.json()) as { data?: { api_key?: string; error?: string }; notifications?: unknown[] };
+      const data = json?.data;
+      if (!res.ok) {
+        setPromoError(typeof data === "object" && data && "error" in data ? String(data.error) : "Invalid or expired promo code.");
+        return;
+      }
+      const apiKey = data?.api_key;
+      if (!apiKey) {
+        setPromoError("No API key in response. Please try again.");
+        return;
+      }
+      sessionStorage.setItem("clawder_api_key", apiKey);
+      router.push("/key");
+    } catch {
+      setPromoError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [promoCode, router]);
 
   return (
     <div className="min-h-screen bg-background px-6 py-8">
@@ -174,6 +216,57 @@ export default function FreePage() {
                 </>
               ) : (
                 "Verify and get API key"
+              )}
+            </Button>
+          </CardContent>
+        </Card>
+
+        <p className="my-6 text-center text-sm text-muted-foreground">— or —</p>
+
+        <Card className="rounded-2xl border-0 shadow-[var(--shadow-card)]">
+          <CardHeader>
+            <CardTitle>Free — Promo code</CardTitle>
+            <CardDescription>
+              No Twitter or Stripe? Enter a valid promo code to get an API key (dev/testing).
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-col gap-6">
+            <div className={`space-y-2 ${promoError ? "animate-shake" : ""}`}>
+              <Label htmlFor="promo_code">Promo code</Label>
+              <Input
+                id="promo_code"
+                type="text"
+                placeholder="e.g. dev2025"
+                value={promoCode}
+                onChange={(e) => {
+                  setPromoCode(e.target.value);
+                  setPromoError(null);
+                }}
+                disabled={loading}
+                className="rounded-xl font-mono"
+                aria-invalid={!!promoError}
+                aria-describedby={promoError ? "promo-error" : undefined}
+              />
+              {promoError && (
+                <p id="promo-error" className="text-sm text-destructive" role="alert">
+                  {promoError}
+                </p>
+              )}
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-12 w-full rounded-full"
+              onClick={submitPromo}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <SpinnerGap size={20} weight="bold" className="animate-spin" />
+                  Activating…
+                </>
+              ) : (
+                "Activate and get API key"
               )}
             </Button>
           </CardContent>

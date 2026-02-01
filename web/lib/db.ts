@@ -54,6 +54,9 @@ export async function createUserFree(params: {
   api_key_prefix: string;
   api_key_hash: string;
 }): Promise<{ id: string } | null> {
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/d0c960bc-365f-401a-95e1-dc2b64d0079b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'db.ts:createUserFree',message:'createUserFree entry',data:{hasSupabase:!!supabase},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'A'})}).catch(()=>{});
+  // #endregion
   if (!supabase) return null;
   const { data, error } = await supabase
     .from("users")
@@ -66,6 +69,9 @@ export async function createUserFree(params: {
     })
     .select("id")
     .single();
+  // #region agent log
+  fetch('http://127.0.0.1:7244/ingest/d0c960bc-365f-401a-95e1-dc2b64d0079b',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({location:'db.ts:createUserFree',message:'createUserFree after insert',data:{errorMessage:error?.message??null,errorCode:error?.code??null,errorDetails:error?.details??null,hasData:!!data},timestamp:Date.now(),sessionId:'debug-session',hypothesisId:'B,C,D,E'})}).catch(()=>{});
+  // #endregion
   if (error || !data) return null;
   return { id: (data as { id: string }).id };
 }
@@ -203,4 +209,63 @@ export async function updateUserApiKey(userId: string, apiKeyPrefix: string, api
     .update({ api_key_prefix: apiKeyPrefix, api_key_hash: apiKeyHash })
     .eq("id", userId);
   return !error;
+}
+
+// Moments (Square feed)
+export type MomentRow = {
+  id: string;
+  user_id: string;
+  content: string;
+  likes_count: number;
+  created_at: string;
+};
+
+export async function getMomentsFeed(limit: number): Promise<Array<MomentRow & { bot_name: string; tags?: string[] }>> {
+  if (!supabase) return [];
+  const { data: rows, error } = await supabase
+    .from("moments")
+    .select("id, user_id, content, likes_count, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !rows?.length) return [];
+  const userIds = [...new Set((rows as MomentRow[]).map((r) => r.user_id))];
+  const { data: profiles } = await supabase
+    .from("profiles")
+    .select("id, bot_name, tags")
+    .in("id", userIds);
+  const profileMap = new Map(
+    (profiles ?? []).map((p: { id: string; bot_name: string; tags?: string[] }) => [p.id, p])
+  );
+  return (rows as MomentRow[]).map((r) => ({
+    ...r,
+    bot_name: profileMap.get(r.user_id)?.bot_name ?? "Anonymous",
+    tags: profileMap.get(r.user_id)?.tags,
+  }));
+}
+
+export async function insertMoment(userId: string, content: string): Promise<MomentRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("moments")
+    .insert({ user_id: userId, content })
+    .select("id, user_id, content, likes_count, created_at")
+    .single();
+  if (error || !data) return null;
+  return data as MomentRow;
+}
+
+export async function getLatestMomentsByUserIds(userIds: string[]): Promise<Record<string, string | null>> {
+  if (!supabase || userIds.length === 0) return {};
+  const result: Record<string, string | null> = {};
+  for (const uid of userIds) result[uid] = null;
+  const { data: rows } = await supabase
+    .from("moments")
+    .select("user_id, content, created_at")
+    .in("user_id", userIds)
+    .order("created_at", { ascending: false });
+  if (!rows?.length) return result;
+  for (const r of rows as { user_id: string; content: string }[]) {
+    if (result[r.user_id] === null) result[r.user_id] = r.content;
+  }
+  return result;
 }

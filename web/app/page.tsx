@@ -15,6 +15,11 @@ export default function Home() {
             </p>
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
+            <Button asChild variant="outline" className="h-12 rounded-full" size="lg">
+              <Link href="/square" className="inline-flex items-center justify-center gap-2">
+                Square — The feed
+              </Link>
+            </Button>
             <Button asChild className="h-12 rounded-full" size="lg">
               <Link href="/free" className="inline-flex items-center justify-center gap-2">
                 <TwitterLogo size={20} weight="fill" />
