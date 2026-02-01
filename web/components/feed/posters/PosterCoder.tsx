@@ -2,49 +2,68 @@
 
 type PosterCoderProps = {
   title: string;
+  content?: string;
+  tags?: string[];
   subtitle?: string;
   seed?: number;
 };
 
-export function PosterCoder({ title, subtitle, seed = 0 }: PosterCoderProps) {
-  const hue = (seed % 360);
-  const fill1 = `hsl(${hue}, 55%, 35%)`;
-  const fill2 = `hsl(${hue + 40}, 50%, 25%)`;
+export function PosterCoder({ title, content, tags, subtitle, seed = 0 }: PosterCoderProps) {
+  // Use a more chaotic seed based on title hash + seed
+  const charSum = title.split('').reduce((acc, char) => acc + char.charCodeAt(0), 0);
+  const uniqueSeed = seed + charSum;
+
+  // Randomize the base hue and brightness significantly
+  const hue = (uniqueSeed % 360);
+  const saturation = 30 + (uniqueSeed % 31); // 30-61%
+  const lightness1 = 8 + (uniqueSeed % 15); // 8-23%
+  const lightness2 = 4 + (uniqueSeed % 15);  // 4-19%
+  
+  const fill1 = `hsl(${hue}, ${saturation}%, ${lightness1}%)`;
+  const fill2 = `hsl(${(hue + 30 + (uniqueSeed % 41 - 20)) % 360}, ${saturation - 5}%, ${lightness2}%)`;
+  
+  // Randomize grid size and dots opacity
+  const gridSize = 15 + (uniqueSeed % 15); // 15-30px
+  const dotOpacity = 0.4 + (uniqueSeed % 40) / 100; // 0.4 to 0.8
+  
   return (
-    <svg
-      viewBox="0 0 400 500"
-      className="h-full w-full object-cover"
-      aria-hidden
-    >
-      <defs>
-        <linearGradient id="coder-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" stopColor={fill1} />
-          <stop offset="100%" stopColor={fill2} />
-        </linearGradient>
-        <pattern id="grid" width="20" height="20" patternUnits="userSpaceOnUse">
-          <path d="M 20 0 L 0 0 0 20" fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="0.5" />
-        </pattern>
-      </defs>
-      <rect width="400" height="500" fill="url(#coder-grad)" />
-      <rect width="400" height="500" fill="url(#grid)" />
-      {/* macOS-style dots */}
-      <circle cx="28" cy="28" r="6" fill="#ff5f57" />
-      <circle cx="52" cy="28" r="6" fill="#febc2e" />
-      <circle cx="76" cy="28" r="6" fill="#28c840" />
-      {/* Code block */}
-      <rect x="32" y="380" width="336" height="72" rx="8" fill="rgba(0,0,0,0.35)" />
-      <text
-        x="48"
-        y="418"
-        fill="rgba(255,255,255,0.9)"
-        fontFamily="ui-monospace, monospace"
-        fontSize="14"
-      >
-        {title.slice(0, 32) || "// post"}
-      </text>
-      <text x="48" y="438" fill="rgba(255,255,255,0.5)" fontFamily="ui-monospace, monospace" fontSize="12">
-        {subtitle ? subtitle.slice(0, 24) : "..."}
-      </text>
-    </svg>
+    <div className="relative h-full w-full p-6 flex flex-col justify-between overflow-hidden font-mono text-emerald-400/90" style={{ backgroundColor: fill1, backgroundImage: `linear-gradient(${135 + (uniqueSeed % 30 - 15)}deg, ${fill1}, ${fill2})` }}>
+      {/* Grid pattern */}
+      <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ 
+        backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', 
+        backgroundSize: `${gridSize}px ${gridSize}px` 
+      }}></div>
+      
+      <div className="relative z-10">
+        <div className="flex gap-1.5 mb-4" style={{ opacity: dotOpacity }}>
+          <div className="w-2.5 h-2.5 rounded-full bg-red-500/80"></div>
+          <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/80"></div>
+          <div className="w-2.5 h-2.5 rounded-full bg-green-500/80"></div>
+        </div>
+        
+        <h3 className="text-xl font-bold leading-tight mb-3 text-white/90">
+          {title}
+        </h3>
+        
+        {content && (
+          <div className="text-xs leading-relaxed opacity-70 border-l-2 border-emerald-500/20 pl-3">
+            <p className="my-1 line-clamp-6">{content}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="relative z-10 flex flex-wrap gap-1.5 mt-auto pt-4">
+        {tags?.slice(0, 3).map((t, i) => (
+          <span key={i} className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/5 text-emerald-500/80">
+            .{t}()
+          </span>
+        ))}
+        {subtitle && !tags?.length && (
+          <span className="text-[10px] opacity-40 italic">
+            // {subtitle}
+          </span>
+        )}
+      </div>
+    </div>
   );
 }

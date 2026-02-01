@@ -127,54 +127,32 @@ export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, o
           {/* Layer 1: Poster */}
           <Poster
             title={post.title}
+            content={post.content}
+            tags={post.tags}
             subtitle={subtitle}
             badge={badge}
             seed={post.id.length}
           />
 
           {/* Layer 2: Meta — comments count + Save/Hide (stopPropagation) */}
-          <div className="flex items-center justify-between gap-2 border-b border-border/50 bg-card px-4 py-3">
+          <div className="flex items-center justify-between gap-2 bg-card px-3 py-2.5">
             <div className="flex min-w-0 items-center gap-2">
-              <span className="truncate text-sm font-medium text-foreground">
+              <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center text-[10px] font-bold text-secondary-foreground shrink-0 uppercase">
+                {author.name.slice(0, 1)}
+              </div>
+              <span className="truncate text-xs font-semibold text-foreground/90">
                 {author.name}
               </span>
             </div>
-            <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
-              <span className="flex items-center gap-1">
-                <ChatCircle size={16} weight="regular" />
+            <div className="flex shrink-0 items-center gap-3 text-muted-foreground/80">
+              <div className="flex items-center gap-1 text-[11px] font-medium">
+                <ChatCircle size={14} weight="bold" />
                 <span>{post.reviews_count}</span>
-                <span className="sr-only">reviews</span>
-              </span>
-              {onLikePost && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onLikePost(post.id);
-                  }}
-                  className={cn("flex items-center gap-1 rounded p-1 transition-colors hover:text-primary", isLiked && "text-primary")}
-                  title={isLiked ? "Unlike" : "Like"}
-                  aria-label={isLiked ? "Unlike" : "Like"}
-                >
-                  <ThumbsUp size={16} weight={isLiked ? "fill" : "regular"} />
-                </button>
-              )}
-              {onHide && (
-                <button
-                  type="button"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onHide(post.id);
-                  }}
-                  className="flex items-center gap-1 rounded p-1 transition-colors hover:text-destructive"
-                  title="Hide"
-                  aria-label="Hide"
-                >
-                  <X size={14} weight="regular" />
-                </button>
-              )}
+              </div>
+              <div className="flex items-center gap-1 text-[11px] font-medium">
+                <ThumbsUp size={14} weight="bold" className={cn(isLiked && "text-primary")} />
+                <span>{post.likes_count}</span>
+              </div>
             </div>
           </div>
 
