@@ -3,9 +3,9 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ReviewLikeButton } from "@/components/aquarium";
+import { ReviewLikeButton, Loader } from "@/components/aquarium";
 import { Poster } from "@/components/feed/posters";
-import { ArrowLeft, ShareNetwork, ChatCircle, Heart } from "@/components/icons";
+import { ArrowLeft, ShareNetwork, ChatCircle, Heart, Sparkle } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { fetchWithAuth, getTierFromData, getViewerUserIdFromData } from "@/lib/api";
 import type { ApiEnvelope } from "@/lib/api";
@@ -82,7 +82,7 @@ export default function PostDetailPage() {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [likedReviewIds, setLikedReviewIds] = useState<Set<string>>(new Set());
-  
+
   const reviewsEndRef = useRef<HTMLDivElement>(null);
 
   const load = useCallback(() => {
@@ -104,10 +104,8 @@ export default function PostDetailPage() {
           });
           setIsPro(getTierFromData(data) === "pro");
           setViewerUserId(getViewerUserIdFromData(data));
-          
-          // Pre-populate liked reviews from server data
           const initialLiked = new Set<string>();
-          data.reviews?.forEach(r => {
+          data.reviews?.forEach((r: PostDetailReview) => {
             if (r.viewer_liked) initialLiked.add(r.id);
           });
           setLikedReviewIds(initialLiked);
@@ -180,8 +178,7 @@ export default function PostDetailPage() {
       <div className="min-h-screen bg-background px-4 py-6 sm:px-6 sm:py-8">
         <div className="mx-auto max-w-2xl">
           <div className="flex items-center justify-center gap-2 py-12 text-muted-foreground">
-            <span className="h-6 w-6 animate-pulse rounded-full bg-muted" />
-            Loading…
+            <Loader className="h-12 w-12" />
           </div>
         </div>
       </div>
@@ -268,12 +265,12 @@ export default function PostDetailPage() {
             </div>
           ) : null}
 
-          {/* Stats */}
+          {/* Stats: Bots liked / Bot reviews (Heart = like bot reaction, pro-only) */}
           <div className="mt-8 flex items-center gap-6 border-y border-border/50 py-4 text-sm text-muted-foreground">
             <div className="flex items-center gap-1.5">
-              <Heart size={18} className="text-primary" weight="fill" />
-              <span className="font-medium text-foreground">{post.likes_count}</span>
-              <span>likes</span>
+              <Sparkle size={18} weight="regular" />
+              <span className="font-medium text-foreground">{post.likes_count ?? 0}</span>
+              <span>Bots liked</span>
             </div>
             <div className="flex items-center gap-1.5">
               <ChatCircle size={18} />
@@ -293,14 +290,15 @@ export default function PostDetailPage() {
           </div>
         </div>
 
-        {/* Live reviews list */}
+        {/* Bot Reactions — like bot reviews (Pro). Humans can only like, not comment. */}
         <div className="mt-8 px-4 sm:px-0">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-bold text-foreground">Reviews</h2>
-            <span className="text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full">
-              {reviews.length} total
-            </span>
-          </div>
+          <details className="group" open={reviews.length <= 3}>
+            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-lg font-bold text-foreground hover:text-foreground/90">
+              <span>Bot reactions</span>
+              <span className="text-xs font-medium text-muted-foreground rounded-full bg-muted px-2 py-1">
+                {reviews.length} total
+              </span>
+            </summary>
           
           {reviews.length === 0 ? (
             <div className="rounded-2xl border-2 border-dashed border-border/50 py-12 text-center">
@@ -386,6 +384,7 @@ export default function PostDetailPage() {
               <div ref={reviewsEndRef} />
             </div>
           )}
+          </details>
         </div>
       </div>
 
@@ -408,39 +407,6 @@ export default function PostDetailPage() {
                   router.push("/pro");
                 }
               }}
-              title={!isPro ? "Upgrade to Pro to like reviews" : "Select a review"}
-            >
-              {!selectedReviewId
-                ? "Select a review"
-                : !isPro
-                  ? "Upgrade to like"
-                  : "Like review"}
-            </Button>
-          )}
-          <Button variant="outline" size="lg" className="gap-2" onClick={handleShare}>
-            <ShareNetwork size={20} weight="regular" />
-            Share
-          </Button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-      {/* Floating bar: like selected review (pro-only), share */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border/50 bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex max-w-2xl items-center justify-center gap-4 px-4">
-          {selectedReviewId && isPro ? (
-            <ReviewLikeButton
-              liked={likedReviewIds.has(selectedReviewId)}
-              onToggle={handleLikeReview}
-            />
-          ) : (
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              disabled={!selectedReviewId}
               title={!isPro ? "Upgrade to Pro to like reviews" : "Select a review"}
             >
               {!selectedReviewId

@@ -116,7 +116,7 @@ export async function GET(
       updated_at: post.updated_at,
     },
     author: detail.author,
-    live_reviews: live_reviews_paywall,
+    reviews: live_reviews_paywall,
     user: resolved ? { tier: resolved.user.tier } : null,
     viewer_user_id: viewerId ?? null,
   };

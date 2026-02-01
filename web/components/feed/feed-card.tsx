@@ -1,13 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { GlassCard, ReviewLikeButton } from "@/components/aquarium";
+import { GlassCard, HeartLike } from "@/components/aquarium";
 import { Poster, type PosterBadge } from "./posters";
-import { ChatCircle, Heart } from "@/components/icons";
+import { ChatCircle, ThumbsUp, X } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { useState, useCallback } from "react";
-import { fetchWithAuth } from "@/lib/api";
-import type { ApiEnvelope } from "@/lib/api";
 
 export type FeedPost = {
   id: string;
@@ -33,10 +30,13 @@ export type FeedAuthor = {
 export type FeedReview = {
   id: string;
   reviewer_id?: string;
+  reviewer_name?: string;
   action: string;
   comment: string;
   comment_blurred?: boolean;
   comment_preview?: string;
+  likes_count?: number;
+  viewer_liked?: boolean;
   created_at: string;
 };
 
@@ -48,7 +48,7 @@ export type FeedItem = {
 };
 
 const REVIEW_PREVIEW_LEN = 18;
-const PAYWALL_CTA = "Pay $1 to see the full roast";
+const PAYWALL_CTA = "Pay $0.99 to see the full roast";
 
 function excerpt(s: string, maxLen: number): string {
   const t = s.trim();
@@ -64,76 +64,119 @@ function pickBadge(tags: string[]): PosterBadge | undefined {
   return "Sparkle";
 }
 
-type FeedCardProps = {
+export const FEED_SAVED_KEY = "feed:saved";
+export const FEED_HIDDEN_KEY = "feed:hidden";
+
+export function getFeedSavedIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(FEED_SAVED_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function getFeedHiddenIds(): Set<string> {
+  if (typeof window === "undefined") return new Set();
+  try {
+    const raw = localStorage.getItem(FEED_HIDDEN_KEY);
+    const arr = raw ? (JSON.parse(raw) as string[]) : [];
+    return new Set(Array.isArray(arr) ? arr : []);
+  } catch {
+    return new Set();
+  }
+}
+
+export function setFeedSavedIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(FEED_SAVED_KEY, JSON.stringify([...ids]));
+  } catch {}
+}
+
+export function setFeedHiddenIds(ids: Set<string>) {
+  if (typeof window === "undefined") return;
+  try {
+    localStorage.setItem(FEED_HIDDEN_KEY, JSON.stringify([...ids]));
+  } catch {}
+}
+
+export type FeedCardProps = {
   item: FeedItem;
   isPro?: boolean;
   viewerUserId?: string | null;
+  isLiked?: boolean;
+  onLikePost?: (postId: string) => void;
+  onHide?: (postId: string) => void;
+  onLikeReview?: (reviewId: string) => void;
 };
 
-export function FeedCard({ item, isPro = false, viewerUserId }: FeedCardProps) {
+export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, onLikePost, onHide, onLikeReview }: FeedCardProps) {
   const { post, author } = item;
   const reviews = item.live_reviews ?? item.featured_reviews ?? [];
   const tag = author.tags?.[0];
   const subtitle = [author.name, tag].filter(Boolean).join(" · ");
   const badge = pickBadge([...(post.tags ?? []), ...(author.tags ?? [])]);
 
-  const [liked, setLiked] = useState(false); // Simplified for post-like
-  const [likesCount, setLikesCount] = useState(post.likes_count);
-
-  const handleLike = useCallback((e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    const nextLiked = !liked;
-    setLiked(nextLiked);
-    setLikesCount(prev => nextLiked ? prev + 1 : prev - 1);
-    
-    // Call API (using swipe endpoint for post like)
-    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-    fetchWithAuth(`${base}/api/swipe`, {
-      method: "POST",
-      body: JSON.stringify({ to_id: author.id, action: nextLiked ? "like" : "pass" }),
-    }).catch(() => {
-      setLiked(liked);
-      setLikesCount(likesCount);
-    });
-  }, [liked, likesCount, author.id]);
-
   return (
     <div className="block break-inside-avoid mb-4">
-      <GlassCard as="article" className="overflow-hidden border-0 relative group">
-        <Link href={`/post/${post.id}`} className="absolute inset-0 z-0" />
-        
-        {/* Layer 1: Poster */}
-        <Poster
-          title={post.title}
-          subtitle={subtitle}
-          badge={badge}
-          seed={post.id.length}
-        />
+      <Link href={`/post/${post.id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
+        <GlassCard as="article" className="overflow-hidden border-0 relative group">
+          {/* Layer 1: Poster */}
+          <Poster
+            title={post.title}
+            subtitle={subtitle}
+            badge={badge}
+            seed={post.id.length}
+          />
 
-        {/* Layer 2: Meta — stats + like button */}
-        <div className="relative z-10 flex items-center justify-between gap-2 border-b border-border/50 bg-card px-4 py-3">
-          <div className="flex min-w-0 items-center gap-2">
-            <span className="truncate text-sm font-medium text-foreground">
-              {author.name}
-            </span>
-          </div>
-          <div className="flex shrink-0 items-center gap-3 text-xs text-muted-foreground">
-            <button 
-              onClick={handleLike}
-              className="flex items-center gap-1 hover:text-primary transition-colors"
-            >
-              <Heart size={16} weight={liked ? "fill" : "regular"} className={cn(liked && "text-primary")} />
-              <span>{likesCount}</span>
-            </button>
-            <span aria-hidden className="opacity-30">·</span>
-            <div className="flex items-center gap-1">
-              <ChatCircle size={16} weight="regular" />
-              <span>{post.reviews_count}</span>
+          {/* Layer 2: Meta — comments count + Save/Hide (stopPropagation) */}
+          <div className="flex items-center justify-between gap-2 border-b border-border/50 bg-card px-4 py-3">
+            <div className="flex min-w-0 items-center gap-2">
+              <span className="truncate text-sm font-medium text-foreground">
+                {author.name}
+              </span>
+            </div>
+            <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+              <span className="flex items-center gap-1">
+                <ChatCircle size={16} weight="regular" />
+                <span>{post.reviews_count}</span>
+                <span className="sr-only">reviews</span>
+              </span>
+              {onLikePost && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onLikePost(post.id);
+                  }}
+                  className={cn("flex items-center gap-1 rounded p-1 transition-colors hover:text-primary", isLiked && "text-primary")}
+                  title={isLiked ? "Unlike" : "Like"}
+                  aria-label={isLiked ? "Unlike" : "Like"}
+                >
+                  <ThumbsUp size={16} weight={isLiked ? "fill" : "regular"} />
+                </button>
+              )}
+              {onHide && (
+                <button
+                  type="button"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onHide(post.id);
+                  }}
+                  className="flex items-center gap-1 rounded p-1 transition-colors hover:text-destructive"
+                  title="Hide"
+                  aria-label="Hide"
+                >
+                  <X size={14} weight="regular" />
+                </button>
+              )}
             </div>
           </div>
-        </div>
 
         {/* Layer 3: Glass — live reviews */}
         <div className="relative z-10 glass rounded-b-2xl p-3">
@@ -145,6 +188,8 @@ export function FeedCard({ item, isPro = false, viewerUserId }: FeedCardProps) {
                 const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
                 const showFull = isPro && !r.comment_blurred;
                 const text = showFull ? r.comment : (r.comment_preview ?? excerpt(r.comment, REVIEW_PREVIEW_LEN));
+                const likesCount = r.likes_count ?? 0;
+                const viewerLiked = r.viewer_liked ?? false;
 
                 return (
                   <li
@@ -155,21 +200,33 @@ export function FeedCard({ item, isPro = false, viewerUserId }: FeedCardProps) {
                       !showFull && "relative"
                     )}
                   >
-                    <span
-                      className={cn(
-                        "inline-block rounded px-1 py-0.5 font-bold uppercase text-[9px] tracking-tighter",
-                        r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                    <div className="flex items-start justify-between gap-2">
+                      <div className="flex-1 min-w-0">
+                        <span
+                          className={cn(
+                            "inline-block rounded px-1 py-0.5 font-bold uppercase text-[9px] tracking-tighter",
+                            r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                          )}
+                        >
+                          {r.action}
+                        </span>{" "}
+                        {!showFull ? (
+                          <span className="text-muted-foreground blur-[3px] select-none">
+                            {text}
+                          </span>
+                        ) : (
+                          <span className="text-foreground/80">{text}</span>
+                        )}
+                      </div>
+                      {isPro && onLikeReview && (
+                        <HeartLike
+                          liked={viewerLiked}
+                          count={likesCount}
+                          onClick={() => onLikeReview(r.id)}
+                          className="shrink-0"
+                        />
                       )}
-                    >
-                      {r.action}
-                    </span>{" "}
-                    {!showFull ? (
-                      <span className="text-muted-foreground blur-[3px] select-none">
-                        {text}
-                      </span>
-                    ) : (
-                      <span className="text-foreground/80">{text}</span>
-                    )}
+                    </div>
                   </li>
                 );
               })}
@@ -181,7 +238,8 @@ export function FeedCard({ item, isPro = false, viewerUserId }: FeedCardProps) {
             </p>
           )}
         </div>
-      </GlassCard>
+        </GlassCard>
+      </Link>
     </div>
   );
 }

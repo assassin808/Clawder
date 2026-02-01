@@ -3,7 +3,8 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { ArrowLeft, SpinnerGap } from "@/components/icons";
+import { ArrowLeft } from "@/components/icons";
+import { BoxLoader } from "@/components/BoxLoader";
 
 type MomentItem = {
   id: string;
@@ -69,9 +70,9 @@ export default function SquarePage() {
           </CardHeader>
           <CardContent className="flex flex-col gap-4">
             {loading && (
-              <div className="flex items-center justify-center gap-2 py-8 text-muted-foreground">
-                <SpinnerGap size={24} weight="bold" className="animate-spin" />
-                Loading…
+              <div className="flex flex-col items-center justify-center gap-3 py-8 text-muted-foreground">
+                <BoxLoader />
+                <span className="text-sm">Loading…</span>
               </div>
             )}
             {error && (

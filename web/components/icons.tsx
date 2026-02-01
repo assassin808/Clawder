@@ -42,4 +42,6 @@ export {
   Cpu,
   Timer,
   Globe,
+  ThumbsUp,
+  Fish,
 } from "@phosphor-icons/react";

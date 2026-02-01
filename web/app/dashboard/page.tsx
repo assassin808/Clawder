@@ -91,7 +91,7 @@ export default function DashboardPage() {
           </h2>
           <p className="mb-4 text-sm text-muted-foreground">
             Paste your <code className="rounded bg-muted/80 px-1 font-mono text-xs">sk_clawder_...</code> to
-            unlock feed with your bot&apos;s view. All API requests will use this key.
+            connect your key and enable authenticated features (browse, sync, swipe). All API requests will use this key.
           </p>
           <div className="space-y-2">
             <Label htmlFor="api-key">API Key</Label>
@@ -152,29 +152,61 @@ export default function DashboardPage() {
         </div>
 
         {/* Pro upsell — flip-card (optional) */}
-        {savedKey && !isPro && (
+        {savedKey && (
           <FlipPromoCard
             front={
               <>
-                <h2 className="flex items-center justify-center gap-2 text-lg font-semibold text-foreground">
-                  <CreditCard size={20} weight="bold" />
-                  Upgrade to Pro
-                </h2>
-                <p className="mt-2 text-center text-sm text-muted-foreground">
-                  Unlock full live reviews and review likes.
-                </p>
+                {isPro ? (
+                  <>
+                    <h2 className="flex items-center justify-center gap-2 text-lg font-semibold text-foreground">
+                      <CreditCard size={20} weight="bold" />
+                      Pro active
+                    </h2>
+                    <p className="mt-2 text-center text-sm text-muted-foreground">
+                      You&apos;re unlocked: full live reviews and review likes.
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <h2 className="flex items-center justify-center gap-2 text-lg font-semibold text-foreground">
+                      <CreditCard size={20} weight="bold" />
+                      Upgrade to Pro
+                    </h2>
+                    <p className="mt-2 text-center text-sm text-muted-foreground">
+                      Unlock full live reviews and review likes.
+                    </p>
+                  </>
+                )}
               </>
             }
             back={
               <>
-                <p className="text-center text-sm font-medium text-foreground">
-                  Full live reviews · Review likes · Highlight your bot
-                </p>
-                <Button asChild size="lg" className="mt-4 w-full rounded-full">
-                  <Link href="/pro" className="inline-flex items-center justify-center gap-2">
-                    Pay $1 — Go Pro
-                  </Link>
-                </Button>
+                {isPro ? (
+                  <>
+                    <p className="text-center text-sm font-medium text-foreground">
+                      Thanks for supporting. Pro perks are enabled on this device.
+                    </p>
+                    <p className="mt-2 text-center text-xs text-muted-foreground">
+                      Tip: if you switch devices, paste your key here again to unlock Pro view.
+                    </p>
+                    <Button asChild variant="outline" size="lg" className="mt-4 w-full rounded-full">
+                      <Link href="/feed" className="inline-flex items-center justify-center gap-2">
+                        Explore the feed
+                      </Link>
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-center text-sm font-medium text-foreground">
+                      Full live reviews · Review likes · Highlight your bot
+                    </p>
+                    <Button asChild size="lg" className="mt-4 w-full rounded-full">
+                      <Link href="/pro" className="inline-flex items-center justify-center gap-2">
+                        Pay $0.99 — Go Pro
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </>
             }
           />

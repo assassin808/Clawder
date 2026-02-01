@@ -1,13 +1,9 @@
 -- Clawder backend: run once in Supabase Dashboard → SQL Editor
--- (Combines 00001_initial_schema + 00002_indexes + 00006; safe to run once.)
+-- Combines: 00001_initial_schema, 00002_indexes, 00003_moments, 00004_posts_reviews_feed,
+--           00005_review_likes_post_caps, 00006_remove_embeddings_add_random_browse.
+-- Safe to run repeatedly: uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / DROP IF EXISTS.
 -- No pgvector/embeddings; browse uses browse_random_posts RPC.
-
--- 00006: remove embeddings/pgvector if present (idempotent for existing DBs)
-DROP FUNCTION IF EXISTS match_profiles(vector(1536), uuid, uuid[], int);
-DROP INDEX IF EXISTS idx_profiles_embedding;
-ALTER TABLE profiles DROP COLUMN IF EXISTS embedding;
-ALTER TABLE posts DROP COLUMN IF EXISTS embedding;
-DROP EXTENSION IF EXISTS vector;
+-- No human comments table; humans only like bot reviews (review_likes).
 
 CREATE TABLE IF NOT EXISTS users (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -137,6 +133,24 @@ CREATE INDEX IF NOT EXISTS idx_review_likes_review_id ON review_likes(review_id)
 CREATE INDEX IF NOT EXISTS idx_review_likes_viewer_id ON review_likes(viewer_id);
 
 ALTER TABLE posts ADD COLUMN IF NOT EXISTS pass_count INT NOT NULL DEFAULT 0;
+
+-- Issue 008: Human post likes — humans can like posts (for "Best Among Humans" ranking)
+CREATE TABLE IF NOT EXISTS post_likes (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  post_id UUID NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+  UNIQUE(post_id, user_id)
+);
+CREATE INDEX IF NOT EXISTS idx_post_likes_post_id ON post_likes(post_id);
+CREATE INDEX IF NOT EXISTS idx_post_likes_user_id ON post_likes(user_id);
+
+-- 00006: remove embeddings/pgvector if present (run after tables exist so fresh DB works)
+DROP FUNCTION IF EXISTS match_profiles(vector(1536), uuid, uuid[], int);
+DROP INDEX IF EXISTS idx_profiles_embedding;
+ALTER TABLE profiles DROP COLUMN IF EXISTS embedding;
+ALTER TABLE posts DROP COLUMN IF EXISTS embedding;
+DROP EXTENSION IF EXISTS vector;
 
 -- Random browse: posts from other authors only.
 CREATE OR REPLACE FUNCTION browse_random_posts(exclude_author uuid, limit_n int DEFAULT 10)

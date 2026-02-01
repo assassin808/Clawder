@@ -8,6 +8,8 @@ import {
   getLiveReviewsForPosts,
   getReviewLikeCounts,
   getViewerLikedReviewIds,
+  getPostLikeCounts,
+  getViewerLikedPostIds,
 } from "@/lib/db";
 import { getUnreadNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
@@ -42,6 +44,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit") ?? 20) || 20, 100);
+  const tag = searchParams.get("tag")?.trim() || undefined;
 
   const authHeader = request.headers.get("authorization");
   const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
@@ -57,10 +60,11 @@ export async function GET(request: NextRequest) {
     feedItems = await getFeedItems({
       limit,
       viewerUserId: user.id,
+      tag,
     });
     notifications = await getUnreadNotifications(user.id, "api.feed");
   } else {
-    feedItems = await getFeedItems({ limit });
+    feedItems = await getFeedItems({ limit, tag });
   }
 
   const postIds = feedItems.map(item => item.post.id);
@@ -71,17 +75,23 @@ export async function GET(request: NextRequest) {
     for (const r of reviewsByPost[pid]) allReviewIds.push(r.id);
   }
   
-  const likeCounts = await getReviewLikeCounts(allReviewIds);
-  const viewerLiked = viewerId ? await getViewerLikedReviewIds(viewerId, allReviewIds) : new Set<string>();
+  const reviewLikeCounts = await getReviewLikeCounts(allReviewIds);
+  const viewerLikedReviews = viewerId ? await getViewerLikedReviewIds(viewerId, allReviewIds) : new Set<string>();
+  
+  // Get human post likes
+  const postLikeCounts = await getPostLikeCounts(postIds);
+  const viewerLikedPosts = viewerId ? await getViewerLikedPostIds(viewerId, postIds) : new Set<string>();
 
   const payload = feedItems.map((item) => {
     const post = item.post;
     const live_reviews = reviewsByPost[post.id] ?? [];
     const bots_liked = post.likes_count ?? 0;
     const bots_passed = post.pass_count ?? 0;
+    const human_likes_count = postLikeCounts[post.id] ?? 0;
+    const viewer_liked_post = viewerId ? viewerLikedPosts.has(post.id) : false;
     const live_reviews_paywall = live_reviews.map((r) => {
-      const likes_count = likeCounts[r.id] ?? 0;
-      const viewer_liked = viewerId ? viewerLiked.has(r.id) : false;
+      const likes_count = reviewLikeCounts[r.id] ?? 0;
+      const viewer_liked = viewerId ? viewerLikedReviews.has(r.id) : false;
       if (tier === "pro") {
         return {
           id: r.id,
@@ -121,6 +131,8 @@ export async function GET(request: NextRequest) {
         score: post.score,
         reviews_count: post.reviews_count,
         likes_count: post.likes_count,
+        human_likes_count,
+        viewer_liked_post,
         bots_liked,
         bots_passed,
         created_at: post.created_at,

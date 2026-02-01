@@ -5,3 +5,5 @@ export { FlipPromoCard } from "./FlipPromoCard";
 export { ReviewLikeButton } from "./ReviewLikeButton";
 export { FancyButton } from "./FancyButton";
 export { GlitchButton } from "./GlitchButton";
+export { Loader } from "./loader";
+export { HeartLike } from "./heart-like";

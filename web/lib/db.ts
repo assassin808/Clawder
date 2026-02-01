@@ -347,6 +347,8 @@ export async function upsertIntroPost(
 export type FeedItemParams = {
   limit: number;
   viewerUserId?: string;
+  /** Feed filter: trending (default), just_matched, best_humans, best_bots */
+  tag?: string;
 };
 
 export type FeedItemAuthor = {
@@ -370,22 +372,78 @@ export type FeedItem = {
   featured_reviews: FeedItemReview[];
 };
 
+function filterPostsByTag(posts: PostRow[], tag: string | undefined): PostRow[] {
+  if (!tag || tag === "trending") return posts;
+  const t = tag.toLowerCase();
+  return posts.filter((p) => {
+    const tags = (p.tags ?? []).map((x) => String(x).toLowerCase());
+    const title = (p.title ?? "").toLowerCase();
+    const content = (p.content ?? "").toLowerCase();
+    if (t === "just_matched") return tags.some((x) => x.includes("match")) || title.includes("match") || content.includes("match");
+    // best_humans and best_bots don't filter, they just sort differently
+    return true;
+  });
+}
+
+function sortPostsByTag(posts: PostRow[], tag: string | undefined): PostRow[] {
+  if (!tag) return posts;
+  const t = tag.toLowerCase();
+  
+  if (t === "best_bots") {
+    // Sort by bot likes (likes_count from reviews)
+    return [...posts].sort((a, b) => {
+      const aLikes = a.likes_count ?? 0;
+      const bLikes = b.likes_count ?? 0;
+      if (bLikes !== aLikes) return bLikes - aLikes;
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
+  }
+  
+  if (t === "best_humans") {
+    // Sort by human likes - will be populated in getFeedItems with actual counts
+    // For now using score as placeholder, actual counts added after query
+    return [...posts].sort((a, b) => {
+      const aLikes = (a as PostRow & { human_likes_count?: number }).human_likes_count ?? 0;
+      const bLikes = (b as PostRow & { human_likes_count?: number }).human_likes_count ?? 0;
+      if (bLikes !== aLikes) return bLikes - aLikes;
+      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+    });
+  }
+  
+  return posts;
+}
+
 export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> {
-  const { limit, viewerUserId } = params;
+  const { limit, viewerUserId, tag } = params;
   if (!supabase) return [];
 
   const effectiveLimit = Math.min(Math.max(limit, 1), 100);
+  const fetchLimit = tag && tag !== "trending" ? effectiveLimit * 5 : effectiveLimit;
 
   if (!viewerUserId) {
-    // Unauthenticated: hot feed by score, no filters, compatibility_score = 0
+    // Unauthenticated: hot feed by score
     const { data: rows, error } = await supabase
       .from("posts")
       .select("id, author_id, title, content, tags, score, reviews_count, likes_count, pass_count, created_at, updated_at")
       .order("score", { ascending: false })
       .order("updated_at", { ascending: false })
-      .limit(effectiveLimit);
+      .limit(fetchLimit);
     if (error || !rows?.length) return [];
-    const posts = rows as PostRow[];
+    const filtered = filterPostsByTag(rows as PostRow[], tag);
+    
+    // For best_humans, fetch human like counts and add to posts
+    let postsWithCounts = filtered;
+    if (tag === "best_humans") {
+      const postIds = filtered.map(p => p.id);
+      const humanLikeCounts = await getPostLikeCounts(postIds);
+      postsWithCounts = filtered.map(p => ({
+        ...p,
+        human_likes_count: humanLikeCounts[p.id] ?? 0
+      }));
+    }
+    
+    const sorted = sortPostsByTag(postsWithCounts, tag);
+    const posts = sorted.slice(0, effectiveLimit);
     const authorIds = [...new Set(posts.map((p) => p.author_id))];
     const { data: profiles } = await supabase
       .from("profiles")
@@ -433,31 +491,50 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
     interacted.filter((i) => i.action === "pass" && i.created_at >= sevenDaysAgo).map((i) => i.author_id)
   );
 
+  const authFetchLimit = tag && tag !== "trending" ? effectiveLimit * 8 : effectiveLimit * 5;
   const { data: rows, error } = await supabase
     .from("posts")
     .select("id, author_id, title, content, tags, score, reviews_count, likes_count, pass_count, created_at, updated_at")
     .neq("author_id", viewerUserId)
     .order("score", { ascending: false })
     .order("updated_at", { ascending: false })
-    .limit(effectiveLimit * 5);
+    .limit(authFetchLimit);
   if (error || !rows?.length) return [];
   let posts = (rows as PostRow[]).filter(
     (p) => !interactedPostIds.has(p.id) && !blockedAuthorIds.has(p.author_id)
   );
-  // Soft demotion: multiply score by DEMOTION_MULTIPLIER for authors in passedAuthorIds
-  posts = posts
-    .map((p) => ({
+  posts = filterPostsByTag(posts, tag);
+  
+  // For best_humans, fetch human like counts and add to posts
+  if (tag === "best_humans") {
+    const postIds = posts.map(p => p.id);
+    const humanLikeCounts = await getPostLikeCounts(postIds);
+    posts = posts.map(p => ({
       ...p,
-      _effectiveScore: passedAuthorIds.has(p.author_id) ? p.score * DEMOTION_MULTIPLIER : p.score,
-    }))
-    .sort((a, b) => {
-      const sa = (a as PostRow & { _effectiveScore: number })._effectiveScore;
-      const sb = (b as PostRow & { _effectiveScore: number })._effectiveScore;
-      if (sb !== sa) return sb - sa;
-      return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
-    })
-    .slice(0, effectiveLimit)
-    .map(({ _effectiveScore: _drop, ...p }) => p);
+      human_likes_count: humanLikeCounts[p.id] ?? 0
+    }));
+  }
+  
+  posts = sortPostsByTag(posts, tag);
+  // Soft demotion: multiply score by DEMOTION_MULTIPLIER for authors in passedAuthorIds
+  // But skip demotion for best_humans and best_bots tabs (they use their own sorting)
+  if (tag && (tag === "best_humans" || tag === "best_bots")) {
+    posts = posts.slice(0, effectiveLimit);
+  } else {
+    posts = posts
+      .map((p) => ({
+        ...p,
+        _effectiveScore: passedAuthorIds.has(p.author_id) ? p.score * DEMOTION_MULTIPLIER : p.score,
+      }))
+      .sort((a, b) => {
+        const sa = (a as PostRow & { _effectiveScore: number })._effectiveScore;
+        const sb = (b as PostRow & { _effectiveScore: number })._effectiveScore;
+        if (sb !== sa) return sb - sa;
+        return new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime();
+      })
+      .slice(0, effectiveLimit)
+      .map(({ _effectiveScore: _drop, ...p }) => p);
+  }
 
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
   const { data: profiles } = await supabase
@@ -732,6 +809,44 @@ export async function setReviewLike(reviewId: string, viewerId: string, like: bo
   }
   const { error } = await supabase.from("review_likes").delete().eq("review_id", reviewId).eq("viewer_id", viewerId);
   return !error;
+}
+
+export async function setPostLike(userId: string, postId: string, like: boolean): Promise<boolean> {
+  if (!supabase) return false;
+  if (like) {
+    const { error } = await supabase.from("post_likes").upsert(
+      { post_id: postId, user_id: userId, created_at: new Date().toISOString() },
+      { onConflict: "post_id,user_id" }
+    );
+    return !error;
+  }
+  const { error } = await supabase.from("post_likes").delete().eq("post_id", postId).eq("user_id", userId);
+  return !error;
+}
+
+export async function getPostLikeCounts(postIds: string[]): Promise<Record<string, number>> {
+  if (!supabase || !postIds.length) return {};
+  const { data, error } = await supabase
+    .from("post_likes")
+    .select("post_id")
+    .in("post_id", postIds);
+  if (error || !data) return {};
+  const counts: Record<string, number> = {};
+  for (const row of data) {
+    counts[row.post_id] = (counts[row.post_id] ?? 0) + 1;
+  }
+  return counts;
+}
+
+export async function getViewerLikedPostIds(viewerId: string, postIds: string[]): Promise<Set<string>> {
+  if (!supabase || !postIds.length) return new Set();
+  const { data, error } = await supabase
+    .from("post_likes")
+    .select("post_id")
+    .eq("user_id", viewerId)
+    .in("post_id", postIds);
+  if (error || !data) return new Set();
+  return new Set(data.map((row) => row.post_id));
 }
 
 export type LiveReviewRow = ReviewRow & { reviewer_name?: string };

@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Copy, SpinnerGap, ArrowLeft } from "@/components/icons";
+import { Copy, ArrowLeft } from "@/components/icons";
+import { BoxLoader } from "@/components/BoxLoader";
 
 const TWEET_TEMPLATE = (nonce: string) =>
   `I just registered my AI agent on @ClawderAI!\nMy bot is looking for other AI friends.\n#OpenClaw #AIAgents\nVerify: ${nonce}`;
@@ -213,7 +214,7 @@ export default function FreePage() {
             >
               {loading ? (
                 <>
-                  <SpinnerGap size={20} weight="bold" className="animate-spin" />
+                  <BoxLoader size="sm" />
                   Verifying…
                 </>
               ) : (
@@ -264,7 +265,7 @@ export default function FreePage() {
             >
               {loading ? (
                 <>
-                  <SpinnerGap size={20} weight="bold" className="animate-spin" />
+                  <BoxLoader size="sm" />
                   Activating…
                 </>
               ) : (
