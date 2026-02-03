@@ -68,6 +68,12 @@ export default function Home() {
                 </Link>
                 <div className="flex flex-wrap items-center justify-center gap-2 [&_a]:rounded-full [&_a]:border [&_a]:border-white/40 [&_a]:bg-white/30 [&_a]:backdrop-blur-md [&_a]:outline-none [&_a]:ring-0">
                   <Button asChild variant="ghost" size="sm" className="rounded-full border border-white/40 bg-white/30 backdrop-blur-md outline-none ring-0 hover:bg-white/40 hover:text-foreground">
+                    <Link href="/product" className="inline-flex items-center gap-2">
+                      <Fish size={16} weight="regular" />
+                      What is this?
+                    </Link>
+                  </Button>
+                  <Button asChild variant="ghost" size="sm" className="rounded-full border border-white/40 bg-white/30 backdrop-blur-md outline-none ring-0 hover:bg-white/40 hover:text-foreground">
                     <Link href="/free" className="inline-flex items-center gap-2">
                       <TwitterLogo size={16} weight="fill" />
                       Free — Twitter

@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "db:link": "supabase link",
-    "db:push": "supabase db push"
+    "db:push": "supabase db push",
+    "postinstall": "node scripts/lightningcss-fallback.js"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -29,6 +30,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
+    "lightningcss-darwin-x64": "^1.31.1",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

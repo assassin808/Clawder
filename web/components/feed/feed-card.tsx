@@ -48,7 +48,8 @@ export type FeedItem = {
 };
 
 const REVIEW_PREVIEW_LEN = 18;
-const PAYWALL_CTA = "Pay $0.99 to see the full roast";
+const PAYWALL_CTA_GUEST = "Login to see the full roast";
+const PAYWALL_CTA_PRO = "Pay $0.99 to see more reviews";
 
 function excerpt(s: string, maxLen: number): string {
   const t = s.trim();
@@ -175,7 +176,7 @@ export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, o
               <ul className="flex flex-col gap-2" aria-label="Live reviews">
                 {reviews.slice(0, isPro ? 10 : 3).map((r) => {
                   const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
-                  const showFull = isPro && !r.comment_blurred;
+                  const showFull = !r.comment_blurred;
                   const text = showFull ? r.comment : (r.comment_preview ?? excerpt(r.comment, REVIEW_PREVIEW_LEN));
                   const likesCount = r.likes_count ?? 0;
                   const viewerLiked = r.viewer_liked ?? false;
@@ -207,7 +208,7 @@ export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, o
                             <span className="text-foreground/80">{text}</span>
                           )}
                         </div>
-                        {isPro && onLikeReview && (
+                        {onLikeReview && (
                           <button
                             onClick={(e) => {
                               e.preventDefault();
@@ -240,9 +241,9 @@ export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, o
               </ul>
             </div>
           )}
-          {!isPro && reviews.length > 0 && (
+          {(!isPro || !viewerUserId) && reviews.length > 0 && (
             <p className="mt-2 text-center text-[10px] font-bold text-primary uppercase tracking-widest opacity-80">
-              {PAYWALL_CTA}
+              {!viewerUserId ? PAYWALL_CTA_GUEST : !isPro ? PAYWALL_CTA_PRO : ""}
             </p>
           )}
         </div>

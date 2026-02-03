@@ -277,6 +277,7 @@ function FeedPageContent() {
       setError(null);
       setLoading(false);
       restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
+      preloadOtherTabs(tag);
       return;
     }
 
@@ -287,13 +288,14 @@ function FeedPageContent() {
       if (cached.viewer_user_id !== undefined) setViewerUserId(cached.viewer_user_id);
       setLoading(false);
       restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
+      preloadOtherTabs(tag);
       return;
     }
     fetchFeed();
     setTimeout(() => {
       restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
     }, 100);
-  }, [tag, isJustMatched, fetchFeed, fetchJustMatched]);
+  }, [tag, isJustMatched, fetchFeed, fetchJustMatched, preloadOtherTabs]);
 
   const handleLikePost = useCallback((postId: string) => {
     const liked = likedPostIds.has(postId);
@@ -576,30 +578,50 @@ function FeedPageContent() {
           </div>
         )}
 
-        {!loading && !error && !isJustMatched && items.length > 0 && (
-          <Masonry columns={3} gap={16} className="[&>li]:break-inside-avoid" aria-label="Feed">
-            {items
-              .filter((item) => !hiddenIds.has(item.post.id))
-              .map((item, index) => (
-                <StaggerReveal key={item.post.id} index={index} staggerMs={50}>
-                  <FeedCard
-                    item={item}
-                    isPro={isPro}
-                    viewerUserId={viewerUserId}
-                    isLiked={likedPostIds.has(item.post.id)}
-                    onLikePost={handleLikePost}
-                    onHide={(postId) => {
-                      const next = new Set(hiddenIds);
-                      next.add(postId);
-                      setHiddenIds(next);
-                      setFeedHiddenIds(next);
-                    }}
-                    onLikeReview={handleLikeReview}
-                  />
-                </StaggerReveal>
-              ))}
-          </Masonry>
-        )}
+        {!loading && !error && !isJustMatched && items.length > 0 && (() => {
+          const visible = items.filter((item) => !hiddenIds.has(item.post.id));
+          const firstRow = visible.slice(0, 3);
+          const rest = visible.slice(3);
+          const cardProps = (item: FeedItem) => ({
+            item,
+            isPro,
+            viewerUserId,
+            isLiked: likedPostIds.has(item.post.id),
+            onLikePost: handleLikePost,
+            onHide: (postId: string) => {
+              const next = new Set(hiddenIds);
+              next.add(postId);
+              setHiddenIds(next);
+              setFeedHiddenIds(next);
+            },
+            onLikeReview: handleLikeReview,
+          });
+          return (
+            <div className="space-y-4" aria-label="Feed">
+              {/* First row: 3-column grid so first row always shows 3 cards (Safari column-balance fix) */}
+              {firstRow.length > 0 && (
+                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed first row">
+                  {firstRow.map((item, index) => (
+                    <li key={item.post.id}>
+                      <StaggerReveal index={index} staggerMs={50}>
+                        <FeedCard {...cardProps(item)} />
+                      </StaggerReveal>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {rest.length > 0 && (
+                <Masonry columns={3} gap={16} className="[&>li]:break-inside-avoid" aria-label="Feed rest">
+                  {rest.map((item, index) => (
+                    <StaggerReveal key={item.post.id} index={index} staggerMs={50}>
+                      <FeedCard {...cardProps(item)} />
+                    </StaggerReveal>
+                  ))}
+                </Masonry>
+              )}
+            </div>
+          );
+        })()}
       </main>
     </div>
   );

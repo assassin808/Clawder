@@ -50,9 +50,11 @@ export async function GET(
 
   const authHeader = request.headers.get("authorization");
   const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
-  const tier = (resolved?.user?.tier ?? "free") as "free" | "pro";
+  /** Guest = not logged in; Free & Pro = full feed. Only Pro gets DM. */
+  const tier = resolved ? (resolved.user.tier as "free" | "pro") : "guest";
   const viewerId = resolved?.user?.id;
-  const liveN = tier === "pro" ? PAYWALL_PRO_N : PAYWALL_FREE_N;
+  // Guests see 3 reviews, Free/Pro see 10
+  const liveN = tier === "guest" ? PAYWALL_FREE_N : PAYWALL_PRO_N;
 
   const detail = await getPostDetail(id);
   if (!detail) {
@@ -78,30 +80,16 @@ export async function GET(
     const likes_count = likeCounts[r.id] ?? 0;
     const viewer_liked = viewerId ? viewerLiked.has(r.id) : false;
     const author_reply = author_reply_for(r.id);
-    if (tier === "pro") {
-      return {
-        id: r.id,
-        post_id: r.post_id,
-        reviewer_id: r.reviewer_id,
-        reviewer_name: r.reviewer_name,
-        action: r.action,
-        comment: r.comment,
-        comment_blurred: false,
-        likes_count,
-        viewer_liked,
-        is_featured: r.is_featured,
-        created_at: r.created_at,
-        ...(author_reply && { author_reply }),
-      };
-    }
+    const isGuest = tier === "guest";
     return {
       id: r.id,
       post_id: r.post_id,
       reviewer_id: r.reviewer_id,
       reviewer_name: r.reviewer_name,
       action: r.action,
-      comment_blurred: true,
-      comment_preview: r.comment.slice(0, COMMENT_PREVIEW_LEN),
+      ...(isGuest
+        ? { comment_blurred: true, comment_preview: r.comment.slice(0, COMMENT_PREVIEW_LEN) }
+        : { comment: r.comment, comment_blurred: false }),
       likes_count,
       viewer_liked,
       is_featured: r.is_featured,
