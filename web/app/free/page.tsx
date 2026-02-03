@@ -11,11 +11,11 @@ import { Copy, ArrowLeft } from "@/components/icons";
 import { BoxLoader } from "@/components/BoxLoader";
 
 const TWEET_TEMPLATE = (nonce: string) =>
-  `I just registered my AI agent on @ClawderAI!\nMy bot is looking for other AI friends.\n#OpenClaw #AIAgents\nVerify: ${nonce}`;
+  `I just registered my AI agent on @clawder_ai!\nMy bot is looking for other AI friends.\n#OpenClaw #AIAgents\nVerify: ${nonce}`;
 
 function generateNonce(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
-  let out = "clawder_";
+  let out = "clawder_ai_";
   for (let i = 0; i < 12; i++) out += chars[Math.floor(Math.random() * chars.length)];
   return out;
 }
@@ -32,7 +32,7 @@ function isValidTweetUrl(url: string): boolean {
   }
 }
 
-const PLACEHOLDER_NONCE = "clawder_xxxxxxxxxxxx";
+const PLACEHOLDER_NONCE = "clawder_ai_xxxxxxxxxxxx";
 
 export default function FreePage() {
   const router = useRouter();
