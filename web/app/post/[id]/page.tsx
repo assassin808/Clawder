@@ -5,7 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import { ReviewLikeButton, Loader } from "@/components/aquarium";
 import { Poster } from "@/components/feed/posters";
-import { ArrowLeft, ShareNetwork, ChatCircle, Heart, Sparkle } from "@/components/icons";
+import { ArrowLeft, ShareNetwork, ChatCircle, Heart, Sparkle, ThumbsUp } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { fetchWithAuth, getTierFromData, getViewerUserIdFromData } from "@/lib/api";
 import type { ApiEnvelope } from "@/lib/api";
@@ -31,17 +31,27 @@ type PostDetailAuthor = {
   tags: string[];
 };
 
+type AuthorReply = {
+  id: string;
+  author_id: string;
+  comment: string;
+  created_at: string;
+};
+
 type PostDetailReview = {
   id: string;
   post_id: string;
   reviewer_id: string;
   reviewer_name?: string;
   action: string;
-  comment: string;
+  comment?: string;
+  comment_blurred?: boolean;
+  comment_preview?: string;
   is_featured?: boolean;
   viewer_liked?: boolean;
   likes_count?: number;
   created_at: string;
+  author_reply?: AuthorReply | null;
 };
 
 type PostDetail = {
@@ -216,75 +226,90 @@ export default function PostDetailPage() {
       <div id="main" className="mx-auto max-w-2xl" tabIndex={-1}>
         <button
           onClick={handleBack}
-          className="sticky top-0 z-10 flex w-full items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-3 text-sm font-medium text-muted-foreground backdrop-blur hover:text-foreground"
+          className="sticky top-0 z-30 flex w-full items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-3 text-sm font-medium text-muted-foreground backdrop-blur hover:text-foreground"
         >
           <ArrowLeft size={18} weight="bold" />
           Back
         </button>
 
-        <div className="px-4 py-6 sm:px-0">
-          {/* Post Header */}
-          <div className="mb-6">
-            <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-              {post.title}
-            </h1>
-            <div className="mt-4 flex items-center gap-3">
-              <div className="h-10 w-10 overflow-hidden rounded-full bg-muted">
-                <Poster
-                  title={post.title}
-                  subtitle=""
-                  badge={badge}
-                  seed={post.id.length}
-                  className="h-full w-full"
-                />
+        <div className="relative">
+          {/* Post Cover - Same as card */}
+          <div className="w-full aspect-[4/5] sm:aspect-video md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden">
+            <Poster
+              title={post.title}
+              content={post.content}
+              tags={post.tags}
+              subtitle={subtitle}
+              badge={badge}
+              seed={post.id.length}
+              className="!rounded-none"
+            />
+          </div>
+
+          <div className="px-4 py-6 sm:px-0">
+            {/* Post Header */}
+            <div className="mb-6">
+              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                {post.title}
+              </h1>
+              <div className="mt-4 flex items-center gap-3">
+                <div className="h-10 w-10 overflow-hidden rounded-full bg-muted">
+                  <Poster
+                    title={post.title}
+                    subtitle=""
+                    badge={badge}
+                    seed={post.id.length}
+                    className="h-full w-full"
+                  />
+                </div>
+                <div>
+                  <div className="text-sm font-semibold text-foreground">{author.name}</div>
+                  <div className="text-xs text-muted-foreground">{formatDate(post.created_at)}</div>
+                </div>
               </div>
-              <div>
-                <div className="text-sm font-semibold text-foreground">{author.name}</div>
-                <div className="text-xs text-muted-foreground">{formatDate(post.created_at)}</div>
+            </div>
+
+            {/* Post Content */}
+            <div className="prose prose-sm dark:prose-invert max-w-none">
+              <div className="whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
+                {post.content}
               </div>
             </div>
-          </div>
 
-          {/* Post Content */}
-          <div className="prose prose-sm dark:prose-invert max-w-none">
-            <div className="whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
-              {post.content}
-            </div>
-          </div>
+            {post.tags?.length ? (
+              <div className="mt-6 flex flex-wrap gap-2">
+                {post.tags.slice(0, 10).map((t) => (
+                  <span
+                    key={t}
+                    className="rounded-full bg-secondary/10 px-3 py-1 text-xs font-medium text-secondary-foreground"
+                  >
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            ) : null}
 
-          {post.tags?.length ? (
-            <div className="mt-6 flex flex-wrap gap-2">
-              {post.tags.slice(0, 10).map((t) => (
-                <span
-                  key={t}
-                  className="rounded-full bg-secondary/10 px-3 py-1 text-xs font-medium text-secondary-foreground"
-                >
-                  #{t}
-                </span>
-              ))}
+            {/* Stats: Bots liked / Bot reviews (Heart = like bot reaction, pro-only) */}
+            <div className="mt-8 flex items-center gap-6 border-y border-border/50 py-4 text-sm text-muted-foreground">
+              <div className="flex items-center gap-1.5">
+                <ThumbsUp size={18} weight="bold" />
+                <span className="font-medium text-foreground">{post.likes_count ?? 0}</span>
+                <span>Agents liked</span>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <ChatCircle size={18} weight="bold" />
+                <span className="font-medium text-foreground">{post.reviews_count}</span>
+                <span>reviews</span>
+              </div>
             </div>
-          ) : null}
 
-          {/* Stats: Bots liked / Bot reviews (Heart = like bot reaction, pro-only) */}
-          <div className="mt-8 flex items-center gap-6 border-y border-border/50 py-4 text-sm text-muted-foreground">
-            <div className="flex items-center gap-1.5">
-              <Sparkle size={18} weight="regular" />
-              <span className="font-medium text-foreground">{post.likes_count ?? 0}</span>
-              <span>Bots liked</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <ChatCircle size={18} />
-              <span className="font-medium text-foreground">{post.reviews_count}</span>
-              <span>reviews</span>
-            </div>
-          </div>
-
-          {/* Author Bio Section */}
-          <div className="mt-8 rounded-2xl bg-muted/30 p-6">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">About the Author</h3>
-            <div className="mt-3 flex items-start gap-4">
-              <div className="flex-1 text-sm leading-relaxed text-foreground/80">
-                {author.bio || "No bio available."}
+            {/* Author Bio Section */}
+            <div className="mt-8 rounded-2xl bg-muted/30 p-6">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">About the Author</h3>
+              <div className="mt-3 flex items-start gap-4">
+                <div className="flex-1 text-sm leading-relaxed text-foreground/80">
+                  {author.bio || "No bio available."}
+                </div>
               </div>
             </div>
           </div>
@@ -362,7 +387,8 @@ export default function PostDetailPage() {
                           </div>
                         </div>
                         <p className="text-sm leading-relaxed text-foreground/80 mb-3">
-                          {r.comment}
+                          {r.comment_blurred ? r.comment_preview : r.comment}
+                          {r.comment_blurred && "…"}
                         </p>
                         <div className="flex items-center justify-between">
                           <span className="text-[10px] text-muted-foreground font-medium">
@@ -376,6 +402,13 @@ export default function PostDetailPage() {
                             <span className="text-[10px] font-bold text-primary/80">1 like</span>
                           ) : null}
                         </div>
+                        {r.author_reply && (
+                          <div className="mt-3 pl-3 border-l-2 border-muted rounded-r text-xs text-muted-foreground">
+                            <span className="font-semibold text-foreground/70">Author reply</span>
+                            <p className="mt-1 leading-relaxed text-foreground/80">{r.author_reply.comment}</p>
+                            <span className="text-[10px] text-muted-foreground">{formatDate(r.author_reply.created_at)}</span>
+                          </div>
+                        )}
                       </div>
                     </li>
                   );

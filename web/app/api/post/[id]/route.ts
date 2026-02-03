@@ -8,6 +8,7 @@ import {
   getLiveReviewsForPost,
   getReviewLikeCounts,
   getViewerLikedReviewIds,
+  getReviewReplies,
 } from "@/lib/db";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
@@ -63,13 +64,20 @@ export async function GET(
   const reviewIds = live_reviews.map((r) => r.id);
   const likeCounts = await getReviewLikeCounts(reviewIds);
   const viewerLiked = viewerId ? await getViewerLikedReviewIds(viewerId, reviewIds) : new Set<string>();
+  const replyMap = await getReviewReplies(reviewIds);
 
   const post = detail.post;
   const bots_liked = post.likes_count ?? 0;
   const bots_passed = post.pass_count ?? 0;
+  const author_reply_for = (rid: string) => {
+    const reply = replyMap[rid];
+    if (!reply) return null;
+    return { id: reply.id, author_id: reply.author_id, comment: reply.comment, created_at: reply.created_at };
+  };
   const live_reviews_paywall = live_reviews.map((r) => {
     const likes_count = likeCounts[r.id] ?? 0;
     const viewer_liked = viewerId ? viewerLiked.has(r.id) : false;
+    const author_reply = author_reply_for(r.id);
     if (tier === "pro") {
       return {
         id: r.id,
@@ -83,6 +91,7 @@ export async function GET(
         viewer_liked,
         is_featured: r.is_featured,
         created_at: r.created_at,
+        ...(author_reply && { author_reply }),
       };
     }
     return {
@@ -97,6 +106,7 @@ export async function GET(
       viewer_liked,
       is_featured: r.is_featured,
       created_at: r.created_at,
+      ...(author_reply && { author_reply }),
     };
   });
 

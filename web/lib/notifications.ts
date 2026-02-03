@@ -17,28 +17,42 @@ export type EnqueueNotificationParams = {
   payload: Record<string, unknown>;
 };
 
-/** Enqueue a notification (upsert by user_id, dedupe_key). */
+/** Enqueue a notification (upsert by user_id, dedupe_key). Plan 7: do not overwrite acked_at so already-acked items are not resurrected. */
 export async function enqueueNotification(
   userId: string,
   params: EnqueueNotificationParams
 ): Promise<void> {
   if (!supabase) return;
-  await supabase.from("notifications").upsert(
-    {
-      user_id: userId,
+  const { data: existing } = await supabase
+    .from("notifications")
+    .select("id, acked_at")
+    .eq("user_id", userId)
+    .eq("dedupe_key", params.dedupe_key)
+    .maybeSingle();
+  const row = existing as { id: string; acked_at: string | null } | null;
+  if (row?.acked_at) return;
+  if (row) {
+    await supabase.from("notifications").update({
       type: params.type,
       source: params.source,
-      dedupe_key: params.dedupe_key,
       payload: params.payload,
-      delivered_at: null,
-    },
-    { onConflict: "user_id,dedupe_key" }
-  );
+    }).eq("id", row.id);
+    return;
+  }
+  await supabase.from("notifications").insert({
+    user_id: userId,
+    type: params.type,
+    source: params.source,
+    dedupe_key: params.dedupe_key,
+    payload: params.payload,
+    delivered_at: null,
+    acked_at: null,
+  });
 }
 
 const QUEUED_NOTIFICATIONS_LIMIT = 50;
 
-/** Fetch undelivered notifications from queue, map to NotificationItem, mark delivered. */
+/** Plan 7: Fetch unacked notifications (read-only; client must call ack). Use stable row id for NotificationItem.id. */
 export async function getUnreadQueuedNotifications(
   userId: string,
   source: string
@@ -48,13 +62,13 @@ export async function getUnreadQueuedNotifications(
     .from("notifications")
     .select("id, type, dedupe_key, payload, created_at")
     .eq("user_id", userId)
-    .is("delivered_at", null)
+    .is("acked_at", null)
     .order("created_at", { ascending: true })
     .limit(QUEUED_NOTIFICATIONS_LIMIT);
   if (error || !rows?.length) return [];
-  const items: NotificationItem[] = (rows as { id: string; type: string; dedupe_key: string; payload: Record<string, unknown>; created_at: string }[]).map(
+  return (rows as { id: string; type: string; dedupe_key: string; payload: Record<string, unknown>; created_at: string }[]).map(
     (r) => ({
-      id: crypto.randomUUID(),
+      id: r.id,
       type: r.type,
       ts: r.created_at,
       severity: "info" as const,
@@ -63,11 +77,24 @@ export async function getUnreadQueuedNotifications(
       payload: r.payload,
     })
   );
+}
+
+/** Plan 7: Mark notifications as acked by dedupe_key so they no longer appear in getUnread. */
+export async function ackNotifications(userId: string, dedupeKeys: string[]): Promise<number> {
+  if (!supabase || !dedupeKeys.length) return 0;
+  const limit = 200;
+  const keys = dedupeKeys.slice(0, limit).filter((k) => typeof k === "string" && k.trim());
+  if (!keys.length) return 0;
   const now = new Date().toISOString();
-  for (const row of rows as { id: string }[]) {
-    await supabase.from("notifications").update({ delivered_at: now }).eq("id", row.id);
-  }
-  return items;
+  const { data, error } = await supabase
+    .from("notifications")
+    .update({ acked_at: now })
+    .eq("user_id", userId)
+    .in("dedupe_key", keys)
+    .is("acked_at", null)
+    .select("id");
+  if (error) return 0;
+  return (data ?? []).length;
 }
 
 /** Match notifications (from matches table) + queued notifications (from notifications table). */
@@ -114,7 +141,7 @@ export async function getUnreadMatchNotifications(
     const contact = p?.contact ?? "";
 
     items.push({
-      id: crypto.randomUUID(),
+      id: row.id,
       type: "match.created",
       ts: row.created_at,
       severity: "info",

@@ -14,20 +14,20 @@ export function PosterCoder({ title, content, tags, subtitle, seed = 0 }: Poster
   const uniqueSeed = seed + charSum;
 
   // Randomize the base hue and brightness significantly
-  const hue = (uniqueSeed % 360);
-  const saturation = 30 + (uniqueSeed % 31); // 30-61%
-  const lightness1 = 8 + (uniqueSeed % 15); // 8-23%
-  const lightness2 = 4 + (uniqueSeed % 15);  // 4-19%
+  const h = (uniqueSeed % 360);
+  const saturation = 40 + (uniqueSeed % 41); // 40-81%
+  const lightness1 = 12 + (uniqueSeed % 20); // 12-32%
+  const lightness2 = 6 + (uniqueSeed % 15);  // 6-21%
   
-  const fill1 = `hsl(${hue}, ${saturation}%, ${lightness1}%)`;
-  const fill2 = `hsl(${(hue + 30 + (uniqueSeed % 41 - 20)) % 360}, ${saturation - 5}%, ${lightness2}%)`;
+  const fill1 = `hsl(${h}, ${saturation}%, ${lightness1}%)`;
+  const fill2 = `hsl(${(h + 60 + (uniqueSeed % 61 - 30)) % 360}, ${saturation - 10}%, ${lightness2}%)`;
   
   // Randomize grid size and dots opacity
   const gridSize = 15 + (uniqueSeed % 15); // 15-30px
   const dotOpacity = 0.4 + (uniqueSeed % 40) / 100; // 0.4 to 0.8
   
   return (
-    <div className="relative h-full w-full p-6 flex flex-col justify-between overflow-hidden font-mono text-emerald-400/90" style={{ backgroundColor: fill1, backgroundImage: `linear-gradient(${135 + (uniqueSeed % 30 - 15)}deg, ${fill1}, ${fill2})` }}>
+    <div className="relative h-full w-full p-6 flex flex-col justify-between overflow-hidden font-mono text-emerald-400/90" style={{ backgroundColor: fill1, backgroundImage: `linear-gradient(${135 + (uniqueSeed % 40 - 20)}deg, ${fill1} 0%, ${fill2} 100%)` }}>
       {/* Grid pattern */}
       <div className="absolute inset-0 opacity-10 pointer-events-none" style={{ 
         backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', 

@@ -233,6 +233,14 @@ export type ReviewRow = {
   created_at: string;
 };
 
+export type ReviewReplyRow = {
+  id: string;
+  review_id: string;
+  author_id: string;
+  comment: string;
+  created_at: string;
+};
+
 export type PostInteractionRow = {
   id: string;
   user_id: string;
@@ -751,6 +759,28 @@ export async function getBrowsePostCards(userId: string, limit: number): Promise
   }));
 }
 
+/** Plan 7: Agent view with seen + block. Excludes posts in post_interactions and authors with block_author = true. */
+export async function getBrowsePostCardsV2(userId: string, limit: number): Promise<BrowseCard[]> {
+  if (!supabase) return [];
+  const limitN = Math.min(Math.max(limit, 1), 50);
+  const { data: rows, error } = await supabase.rpc("browse_random_posts_v2", {
+    exclude_author: userId,
+    viewer_id: userId,
+    limit_n: limitN,
+  });
+  if (error || !rows?.length) return [];
+  const posts = rows as { id: string; author_id: string; title: string; content: string }[];
+  const authorIds = [...new Set(posts.map((p) => p.author_id))];
+  const { data: profiles } = await supabase.from("profiles").select("id, bot_name").in("id", authorIds);
+  const nameMap = new Map((profiles ?? []).map((p: { id: string; bot_name: string }) => [p.id, p.bot_name]));
+  return posts.map((p) => ({
+    post_id: p.id,
+    title: p.title,
+    content: p.content,
+    author: { id: p.author_id, name: nameMap.get(p.author_id) ?? "Anonymous" },
+  }));
+}
+
 export async function getReviewLikeCount(reviewId: string): Promise<number> {
   if (!supabase) return 0;
   const { count, error } = await supabase
@@ -795,6 +825,36 @@ export async function getReviewById(reviewId: string): Promise<ReviewRow | null>
     .maybeSingle();
   if (error || !data) return null;
   return data as ReviewRow;
+}
+
+/** Batch fetch author replies for reviews (Plan 7). Returns map review_id -> reply. */
+export async function getReviewReplies(reviewIds: string[]): Promise<Record<string, ReviewReplyRow>> {
+  const out: Record<string, ReviewReplyRow> = {};
+  if (!supabase || !reviewIds.length) return out;
+  const { data, error } = await supabase
+    .from("review_replies")
+    .select("id, review_id, author_id, comment, created_at")
+    .in("review_id", reviewIds);
+  if (error || !data?.length) return out;
+  for (const r of data as ReviewReplyRow[]) out[r.review_id] = r;
+  return out;
+}
+
+/** Upsert author reply for a review (one per review). Caller must verify current user is post author. */
+export async function upsertReviewReply(reviewId: string, authorId: string, comment: string): Promise<ReviewReplyRow | null> {
+  if (!supabase) return null;
+  const trimmed = comment.trim().slice(0, 300);
+  if (!trimmed) return null;
+  const { data, error } = await supabase
+    .from("review_replies")
+    .upsert(
+      { review_id: reviewId, author_id: authorId, comment: trimmed, created_at: new Date().toISOString() },
+      { onConflict: "review_id" }
+    )
+    .select("id, review_id, author_id, comment, created_at")
+    .single();
+  if (error || !data) return null;
+  return data as ReviewReplyRow;
 }
 
 /** Like or unlike a review (pro-only). Returns true if ok. */
@@ -933,4 +993,136 @@ export async function getDailyPostCount(userId: string): Promise<number> {
 /** Moments created today (UTC) by user. */
 export async function getDailyMomentCount(userId: string): Promise<number> {
   return 0; // Deprecated
+}
+
+// --- Plan 8: DM messages (Agent↔Agent after match) ---
+
+export type DmMessageRow = {
+  id: string;
+  match_id: string;
+  sender_id: string;
+  content: string;
+  created_at: string;
+  client_msg_id?: string | null;
+};
+
+/** Get match by id. */
+export async function getMatchById(matchId: string): Promise<MatchRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("matches")
+    .select("id, bot_a_id, bot_b_id, notified_a, notified_b, created_at")
+    .eq("id", matchId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as MatchRow;
+}
+
+/** Return [bot_a_id, bot_b_id] if match exists; null otherwise. */
+export function getMatchParticipantIds(match: MatchRow | null): [string, string] | null {
+  if (!match) return null;
+  return [match.bot_a_id, match.bot_b_id];
+}
+
+/** Insert a DM message. Caller must verify sender is participant. Optional clientMsgId for idempotent retries. Returns { message, error }. */
+export async function insertDmMessage(
+  matchId: string,
+  senderId: string,
+  content: string,
+  clientMsgId?: string | null
+): Promise<{ message: DmMessageRow | null; error: string | null }> {
+  if (!supabase) return { message: null, error: "no db client" };
+  const trimmed = content.trim().slice(0, 2000);
+  if (!trimmed) return { message: null, error: "empty content" };
+  const cid = clientMsgId?.trim() || null;
+  const row: Record<string, unknown> = {
+    match_id: matchId,
+    sender_id: senderId,
+    content: trimmed,
+    created_at: new Date().toISOString(),
+  };
+  if (cid) row.client_msg_id = cid;
+
+  const { data: inserted, error: insertError } = await supabase
+    .from("dm_messages")
+    .insert(row)
+    .select("id, match_id, sender_id, content, created_at, client_msg_id")
+    .single();
+
+  if (!insertError && inserted) return { message: inserted as DmMessageRow, error: null };
+  if (insertError?.code === "23505" && cid) {
+    const { data: existing } = await supabase
+      .from("dm_messages")
+      .select("id, match_id, sender_id, content, created_at, client_msg_id")
+      .eq("match_id", matchId)
+      .eq("sender_id", senderId)
+      .eq("client_msg_id", cid)
+      .maybeSingle();
+    if (existing) return { message: existing as DmMessageRow, error: null };
+  }
+  return { message: null, error: insertError?.message ?? "no data" };
+}
+
+/** Get DM messages for a match (oldest first, for thread display). */
+export async function getDmMessagesForMatch(matchId: string, limitN: number): Promise<DmMessageRow[]> {
+  if (!supabase) return [];
+  const limit = Math.min(Math.max(limitN, 1), 200);
+  const { data, error } = await supabase
+    .from("dm_messages")
+    .select("id, match_id, sender_id, content, created_at")
+    .eq("match_id", matchId)
+    .order("created_at", { ascending: true })
+    .limit(limit);
+  if (error || !data?.length) return [];
+  return data as DmMessageRow[];
+}
+
+/** Get last N messages per match (for voyeur). Order by created_at desc within match. */
+export async function getLastDmMessagesPerMatch(matchIds: string[], messagesPerMatch: number): Promise<Record<string, DmMessageRow[]>> {
+  const out: Record<string, DmMessageRow[]> = {};
+  if (!supabase || !matchIds.length) return out;
+  for (const id of matchIds) out[id] = [];
+  const { data, error } = await supabase
+    .from("dm_messages")
+    .select("id, match_id, sender_id, content, created_at")
+    .in("match_id", matchIds)
+    .order("created_at", { ascending: false });
+  if (error || !data?.length) return out;
+  const rows = data as DmMessageRow[];
+  for (const r of rows) {
+    const arr = out[r.match_id];
+    if (arr && arr.length < messagesPerMatch) arr.push(r);
+  }
+  for (const id of matchIds) {
+    const arr = out[id];
+    if (arr?.length) arr.reverse();
+  }
+  return out;
+}
+
+/** Recent matches (for Pro voyeur Just Matched). */
+export async function getRecentMatches(limitN: number): Promise<MatchRow[]> {
+  if (!supabase) return [];
+  const limit = Math.min(Math.max(limitN, 1), 100);
+  const { data, error } = await supabase
+    .from("matches")
+    .select("id, bot_a_id, bot_b_id, notified_a, notified_b, created_at")
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data?.length) return [];
+  return data as MatchRow[];
+}
+
+/** Matches for one user (agent: list my match threads). */
+export async function getMatchesForUser(userId: string, limitN: number = 50): Promise<MatchRow[]> {
+  if (!supabase) return [];
+  const limit = Math.min(Math.max(limitN, 1), 100);
+  const { data, error } = await supabase
+    .from("matches")
+    .select("id, bot_a_id, bot_b_id, notified_a, notified_b, created_at")
+    .or(`bot_a_id.eq.${userId},bot_b_id.eq.${userId}`)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data?.length) return [];
+  return data as MatchRow[];
 }

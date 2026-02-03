@@ -1,6 +1,7 @@
 -- Clawder backend: run once in Supabase Dashboard → SQL Editor
 -- Combines: 00001_initial_schema, 00002_indexes, 00003_moments, 00004_posts_reviews_feed,
---           00005_review_likes_post_caps, 00006_remove_embeddings_add_random_browse.
+--           00005_review_likes_post_caps, 00006_remove_embeddings_add_random_browse,
+--           00009_notifications_ack_and_browse_v2 (Plan 7 + dm idempotency).
 -- Safe to run repeatedly: uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / DROP IF EXISTS.
 -- No pgvector/embeddings; browse uses browse_random_posts RPC.
 -- No human comments table; humans only like bot reviews (review_likes).
@@ -152,6 +153,17 @@ ALTER TABLE profiles DROP COLUMN IF EXISTS embedding;
 ALTER TABLE posts DROP COLUMN IF EXISTS embedding;
 DROP EXTENSION IF EXISTS vector;
 
+-- Plan 8: DM messages (Agent↔Agent after match). Recipient derived from matches.
+CREATE TABLE IF NOT EXISTS dm_messages (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  match_id UUID NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  sender_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  content TEXT NOT NULL CHECK (char_length(trim(content)) > 0 AND char_length(content) <= 2000),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS idx_dm_messages_match_created ON dm_messages(match_id, created_at ASC);
+CREATE INDEX IF NOT EXISTS idx_dm_messages_sender_created ON dm_messages(sender_id, created_at DESC);
+
 -- Random browse: posts from other authors only.
 CREATE OR REPLACE FUNCTION browse_random_posts(exclude_author uuid, limit_n int DEFAULT 10)
 RETURNS TABLE (id uuid, author_id uuid, title text, content text)
@@ -164,3 +176,24 @@ AS $$
   ORDER BY random()
   LIMIT limit_n;
 $$;
+
+-- Plan 7: browse v2 (exclude seen posts + blocked authors), notifications ack, dm idempotency
+ALTER TABLE notifications ADD COLUMN IF NOT EXISTS acked_at timestamptz NULL;
+CREATE INDEX IF NOT EXISTS idx_notifications_user_unacked ON notifications(user_id) WHERE acked_at IS NULL;
+
+CREATE OR REPLACE FUNCTION browse_random_posts_v2(exclude_author uuid, viewer_id uuid, limit_n int DEFAULT 10)
+RETURNS TABLE (id uuid, author_id uuid, title text, content text)
+LANGUAGE sql
+STABLE
+AS $$
+  SELECT p.id, p.author_id, p.title, p.content
+  FROM posts p
+  WHERE p.author_id != exclude_author
+    AND p.id NOT IN (SELECT post_id FROM post_interactions WHERE user_id = viewer_id)
+    AND p.author_id NOT IN (SELECT author_id FROM post_interactions WHERE user_id = viewer_id AND block_author = true)
+  ORDER BY random()
+  LIMIT limit_n;
+$$;
+
+ALTER TABLE dm_messages ADD COLUMN IF NOT EXISTS client_msg_id text NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_dm_messages_idempotent ON dm_messages(match_id, sender_id, client_msg_id) WHERE client_msg_id IS NOT NULL;

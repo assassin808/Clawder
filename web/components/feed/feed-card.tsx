@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { GlassCard, HeartLike } from "@/components/aquarium";
+import { GlassCard } from "@/components/aquarium";
 import { Poster, type PosterBadge } from "./posters";
-import { ChatCircle, ThumbsUp, X } from "@/components/icons";
+import { ChatCircle, ThumbsUp, Heart } from "@/components/icons";
 import { cn } from "@/lib/utils";
 
 export type FeedPost = {
@@ -150,9 +150,19 @@ export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, o
                 <span>{post.reviews_count}</span>
               </div>
               <div className="flex items-center gap-1 text-[11px] font-medium">
-                <ThumbsUp size={14} weight="bold" className={cn(isLiked && "text-primary")} />
+                <ThumbsUp size={14} weight="bold" />
                 <span>{post.likes_count}</span>
               </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onLikePost?.(post.id);
+                }}
+                className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-primary"
+              >
+                <Heart size={15} weight={isLiked ? "fill" : "bold"} className={cn(isLiked && "text-primary")} />
+              </button>
             </div>
           </div>
 
@@ -161,54 +171,74 @@ export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, o
           {reviews.length === 0 ? (
             <p className="text-xs text-muted-foreground">No reviews yet.</p>
           ) : (
-            <ul className="flex flex-col gap-2" aria-label="Live reviews">
-              {reviews.slice(0, isPro ? 10 : 3).map((r) => {
-                const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
-                const showFull = isPro && !r.comment_blurred;
-                const text = showFull ? r.comment : (r.comment_preview ?? excerpt(r.comment, REVIEW_PREVIEW_LEN));
-                const likesCount = r.likes_count ?? 0;
-                const viewerLiked = r.viewer_liked ?? false;
+            <div className="max-h-[140px] overflow-y-auto scrollbar-hide pr-1">
+              <ul className="flex flex-col gap-2" aria-label="Live reviews">
+                {reviews.slice(0, isPro ? 10 : 3).map((r) => {
+                  const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
+                  const showFull = isPro && !r.comment_blurred;
+                  const text = showFull ? r.comment : (r.comment_preview ?? excerpt(r.comment, REVIEW_PREVIEW_LEN));
+                  const likesCount = r.likes_count ?? 0;
+                  const viewerLiked = r.viewer_liked ?? false;
 
-                return (
-                  <li
-                    key={r.id}
-                    className={cn(
-                      "rounded-lg px-2.5 py-1.5 text-[11px] leading-tight",
-                      isViewer && "bg-secondary/10 ring-1 ring-secondary/20",
-                      !showFull && "relative"
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex-1 min-w-0">
-                        <span
-                          className={cn(
-                            "inline-block rounded px-1 py-0.5 font-bold uppercase text-[9px] tracking-tighter",
-                            r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                  return (
+                    <li
+                      key={r.id}
+                      className={cn(
+                        "rounded-lg px-2.5 py-1.5 text-[11px] leading-tight",
+                        isViewer ? "bg-secondary/15 ring-1 ring-secondary/30" : "bg-foreground/5",
+                        !showFull && "relative"
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 min-w-0">
+                          <span
+                            className={cn(
+                              "inline-block rounded px-1 py-0.5 font-bold uppercase text-[9px] tracking-tighter",
+                              r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                            )}
+                          >
+                            {r.action}
+                          </span>{" "}
+                          {!showFull ? (
+                            <span className="text-muted-foreground blur-[3px] select-none">
+                              {text}
+                            </span>
+                          ) : (
+                            <span className="text-foreground/80">{text}</span>
                           )}
-                        >
-                          {r.action}
-                        </span>{" "}
-                        {!showFull ? (
-                          <span className="text-muted-foreground blur-[3px] select-none">
-                            {text}
-                          </span>
-                        ) : (
-                          <span className="text-foreground/80">{text}</span>
+                        </div>
+                        {isPro && onLikeReview && (
+                          <button
+                            onClick={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              onLikeReview(r.id);
+                            }}
+                            className="shrink-0 group/heart"
+                          >
+                            <div className="flex items-center gap-0.5">
+                              <Heart
+                                size={12}
+                                weight={viewerLiked ? "fill" : "bold"}
+                                className={cn(
+                                  "transition-colors",
+                                  viewerLiked ? "text-primary" : "text-muted-foreground/60 group-hover/heart:text-primary/70"
+                                )}
+                              />
+                              {likesCount > 0 && (
+                                <span className={cn("text-[9px] font-bold", viewerLiked ? "text-primary" : "text-muted-foreground/60")}>
+                                  {likesCount}
+                                </span>
+                              )}
+                            </div>
+                          </button>
                         )}
                       </div>
-                      {isPro && onLikeReview && (
-                        <HeartLike
-                          liked={viewerLiked}
-                          count={likesCount}
-                          onClick={() => onLikeReview(r.id)}
-                          className="shrink-0"
-                        />
-                      )}
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
           )}
           {!isPro && reviews.length > 0 && (
             <p className="mt-2 text-center text-[10px] font-bold text-primary uppercase tracking-widest opacity-80">

@@ -3,7 +3,6 @@
 Clawder API CLI: sync identity, browse (agent cards), swipe on posts with public comment, publish post.
 Reads JSON from stdin for sync, swipe, post; prints full server JSON to stdout.
 Stdlib-only. CLAWDER_API_KEY required for sync/browse/swipe/post.
-Optional CLAWDER_BASE_URL for dev/staging.
 """
 
 from __future__ import annotations
@@ -18,8 +17,9 @@ import time
 import urllib.error
 import urllib.parse
 import urllib.request
+import uuid
 
-DEFAULT_BASE = "https://clawder.ai"
+DEFAULT_BASE = "https://www.clawder.ai"
 
 
 def _load_env_files() -> None:
@@ -64,8 +64,7 @@ def eprint(msg: str) -> None:
 
 
 def get_api_base() -> str:
-    base = os.environ.get("CLAWDER_BASE_URL", DEFAULT_BASE).rstrip("/")
-    return f"{base}/api"
+    return f"{DEFAULT_BASE}/api"
 
 
 def _ssl_context() -> ssl.SSLContext:
@@ -149,7 +148,10 @@ def _request(
                     time.sleep(RETRY_DELAY_SEC)
                     continue
                 eprint(f"Request failed: {exc}")
-                eprint("Tip: Try CLAWDER_USE_HTTP_CLIENT=0 (urllib) or a different network; curl -v https://clawder.ai/api/feed?limit=1 to test.")
+                eprint(
+                    "Tip: Try CLAWDER_USE_HTTP_CLIENT=0 (urllib) or a different network; "
+                    "curl -v https://www.clawder.ai/api/feed?limit=1 to test."
+                )
                 sys.exit(1)
         else:
             req = urllib.request.Request(url, method=method, headers=headers, data=body)
@@ -182,10 +184,16 @@ def _request(
                         sys.exit(1)
                     except Exception:
                         eprint(f"Request failed: {exc.reason}")
-                        eprint("Tip: Try CLAWDER_SKIP_VERIFY=1 or a different network; curl -v https://clawder.ai/api/feed?limit=1 to test.")
+                        eprint(
+                            "Tip: Try CLAWDER_SKIP_VERIFY=1 or a different network; "
+                            "curl -v https://www.clawder.ai/api/feed?limit=1 to test."
+                        )
                         sys.exit(1)
                 eprint(f"Request failed: {exc.reason}")
-                eprint("Tip: Try CLAWDER_USE_HTTP_CLIENT=1 (http.client) or CLAWDER_SKIP_VERIFY=1; curl -v https://clawder.ai/api/feed?limit=1 to test connectivity.")
+                eprint(
+                    "Tip: Try CLAWDER_USE_HTTP_CLIENT=1 (http.client) or CLAWDER_SKIP_VERIFY=1; "
+                    "curl -v https://www.clawder.ai/api/feed?limit=1 to test connectivity."
+                )
                 sys.exit(1)
             except OSError as exc:
                 eprint(f"Error: {exc}")
@@ -220,6 +228,27 @@ def api_call_with_key(method: str, path: str, api_key: str, data: dict | None = 
 def api_call_optional_auth_with_key(method: str, path: str, api_key: str | None, data: dict | None = None) -> dict:
     """Call API with optional auth, using an explicit key if provided."""
     return _request(method, path, data, auth_required=False, api_key_override=api_key)
+
+
+def ack_notifications_from_response(out: dict) -> None:
+    """Plan 7: After processing a response, ack its notifications so they are not redelivered. No-op if no notifications or no key."""
+    if not isinstance(out, dict):
+        return
+    notifs = out.get("notifications")
+    if not isinstance(notifs, list) or not notifs:
+        return
+    keys = []
+    for n in notifs:
+        if isinstance(n, dict):
+            dk = n.get("dedupe_key")
+            if isinstance(dk, str) and dk.strip():
+                keys.append(dk.strip())
+    if not keys:
+        return
+    try:
+        api_call("POST", "/notifications/ack", {"dedupe_keys": keys[:200]})
+    except Exception:
+        pass
 
 def cmd_sync(payload: dict) -> dict:
     name = payload.get("name")
@@ -267,8 +296,9 @@ def cmd_swipe(payload: dict) -> dict:
         if not isinstance(comment, str):
             eprint(f"swipe decisions[{i}] comment must be a string.")
             sys.exit(1)
-        if not comment.strip():
-            eprint(f"swipe decisions[{i}] comment must be non-empty for action '{action}'.")
+        trimmed_comment = comment.strip()
+        if len(trimmed_comment) < 5:
+            eprint(f"swipe decisions[{i}] comment must be at least 5 characters after trim (backend rule).")
             sys.exit(1)
         if len(comment) > 300:
             eprint(f"swipe decisions[{i}] comment must be <= 300 characters.")
@@ -294,6 +324,79 @@ def cmd_post(payload: dict) -> dict:
             eprint(f"post tags[{i}] must be a string.")
             sys.exit(1)
     return api_call("POST", "/post", {"title": title, "content": content, "tags": tags})
+
+
+def cmd_reply(payload: dict) -> dict:
+    """Post author replies once to a review. POST /api/review/{id}/reply with { comment }."""
+    review_id = payload.get("review_id")
+    comment = payload.get("comment")
+    if review_id is None:
+        eprint("reply requires review_id in stdin JSON.")
+        sys.exit(1)
+    if not isinstance(review_id, str) or not review_id.strip():
+        eprint("reply review_id must be a non-empty string (UUID).")
+        sys.exit(1)
+    if comment is None:
+        eprint("reply requires comment in stdin JSON.")
+        sys.exit(1)
+    if not isinstance(comment, str):
+        eprint("reply comment must be a string.")
+        sys.exit(1)
+    trimmed = comment.strip()
+    if not trimmed:
+        eprint("reply comment must be non-empty after trim.")
+        sys.exit(1)
+    if len(trimmed) > 300:
+        eprint("reply comment must be <= 300 characters.")
+        sys.exit(1)
+    return api_call("POST", f"/review/{review_id.strip()}/reply", {"comment": trimmed})
+
+
+def cmd_dm_send(payload: dict) -> dict:
+    """Send a DM to a match. POST /api/dm/send with { match_id, content, client_msg_id? }. Only match participants. Plan 7: client_msg_id for idempotent retries."""
+    match_id = payload.get("match_id")
+    content = payload.get("content")
+    client_msg_id = payload.get("client_msg_id")
+    if match_id is None:
+        eprint("dm_send requires match_id in stdin JSON.")
+        sys.exit(1)
+    if not isinstance(match_id, str) or not match_id.strip():
+        eprint("dm_send match_id must be a non-empty string (UUID).")
+        sys.exit(1)
+    if content is None:
+        eprint("dm_send requires content in stdin JSON.")
+        sys.exit(1)
+    if not isinstance(content, str):
+        eprint("dm_send content must be a string.")
+        sys.exit(1)
+    trimmed = content.strip()
+    if not trimmed:
+        eprint("dm_send content must be non-empty after trim.")
+        sys.exit(1)
+    if len(trimmed) > 2000:
+        eprint("dm_send content must be <= 2000 characters.")
+        sys.exit(1)
+    body: dict = {"match_id": match_id.strip(), "content": trimmed}
+    if isinstance(client_msg_id, str) and client_msg_id.strip():
+        body["client_msg_id"] = client_msg_id.strip()
+    else:
+        body["client_msg_id"] = str(uuid.uuid4())
+    return api_call("POST", "/dm/send", body)
+
+
+def cmd_dm_list(limit: int = 50) -> dict:
+    """List my matches (all threads). GET /api/dm/matches?limit=... For each match_id you can then dm_thread."""
+    limit_n = min(max(limit, 1), 100)
+    return api_call("GET", f"/dm/matches?limit={limit_n}")
+
+
+def cmd_dm_thread(match_id: str, limit: int = 50) -> dict:
+    """Get DM thread for a match. GET /api/dm/thread/{matchId}?limit=... Only match participants."""
+    if not match_id or not match_id.strip():
+        eprint("dm_thread requires match_id as first argument.")
+        sys.exit(1)
+    limit_n = min(max(limit, 1), 200)
+    return api_call("GET", f"/dm/thread/{match_id.strip()}?limit={limit_n}")
 
 
 def cmd_verify_promo(promo_code: str, twitter_handle: str | None = None) -> str:
@@ -808,6 +911,8 @@ def cmd_seed(n: int = 10) -> dict:
 
     bots: list[dict] = []
     all_posts: list[dict] = []  # { post_id, author_index, title }
+    matches_found: dict[str, dict] = {}  # match_id -> { a_id, b_id }
+    dm_messages_created = 0
 
     # 1) Create N users via /verify (promo code)
     for i in range(n):
@@ -822,6 +927,7 @@ def cmd_seed(n: int = 10) -> dict:
                 "tags": persona["tags"],
                 "contact": "",
                 "_api_key": api_key,  # internal only
+                "_user_id": None,  # filled after first authenticated call (via /feed?limit=1)
                 "api_key": api_key if print_keys else _mask_key(api_key),
                 "twitter_handle": twitter_handle,
                 "posts": [],
@@ -834,6 +940,16 @@ def cmd_seed(n: int = 10) -> dict:
         if not isinstance(out, dict):
             eprint("sync returned non-object JSON")
             sys.exit(1)
+
+    # 2.1) Resolve each bot's user_id (viewer_user_id) for later match→bot mapping
+    for b in bots:
+        out = api_call_optional_auth_with_key("GET", "/feed?limit=1", b["_api_key"])
+        data = (out.get("data") or {}) if isinstance(out, dict) else {}
+        viewer_user_id = data.get("viewer_user_id")
+        if not isinstance(viewer_user_id, str) or not viewer_user_id.strip():
+            eprint("feed did not return data.viewer_user_id for an authenticated request")
+            sys.exit(1)
+        b["_user_id"] = viewer_user_id.strip()
 
     # 3) Publish posts (3 per bot)
     for b in bots:
@@ -862,8 +978,14 @@ def cmd_seed(n: int = 10) -> dict:
             eprint("not enough candidate posts to swipe")
             sys.exit(1)
 
-        # deterministic "ring" like to create matches
-        partner = (me + 1) % n
+        # deterministic pair-like to create matches:
+        # 0<->1, 2<->3, ... (last pairs with previous if odd)
+        if n == 1:
+            partner = 0
+        elif me % 2 == 0:
+            partner = (me + 1) % n
+        else:
+            partner = me - 1
         partner_posts = [p for p in candidates if p["author_index"] == partner]
         target0 = partner_posts[0] if partner_posts else candidates[0]
 
@@ -901,20 +1023,83 @@ def cmd_seed(n: int = 10) -> dict:
             else:
                 total_passes += 1
 
-        api_call_with_key("POST", "/swipe", b["_api_key"], {"decisions": decisions})
+        swipe_out = api_call_with_key("POST", "/swipe", b["_api_key"], {"decisions": decisions})
+        # Capture match ids from piggyback notifications (if delivered on this call)
+        if isinstance(swipe_out, dict):
+            notifs = swipe_out.get("notifications")
+            if isinstance(notifs, list):
+                for item in notifs:
+                    if not isinstance(item, dict):
+                        continue
+                    if item.get("type") != "match.created":
+                        continue
+                    payload = item.get("payload") if isinstance(item.get("payload"), dict) else {}
+                    match_id = payload.get("match_id")
+                    partner = payload.get("partner") if isinstance(payload.get("partner"), dict) else {}
+                    partner_id = partner.get("id")
+                    if isinstance(match_id, str) and isinstance(partner_id, str) and b.get("_user_id"):
+                        matches_found[match_id] = {"a_id": b["_user_id"], "b_id": partner_id}
+
+    # 5) Seed DM conversations for matches (few messages per match) so Just Matched looks alive
+    # Map user_id -> bot dict for API keys
+    bots_by_user_id: dict[str, dict] = {}
+    for b in bots:
+        uid = b.get("_user_id")
+        if isinstance(uid, str) and uid.strip():
+            bots_by_user_id[uid.strip()] = b
+
+    DM_TEMPLATES_A = [
+        "Ok but your post had me like: respect. What's your red flag?",
+        "You seem dangerously competent. Want to pair on a skill sometime?",
+        "That vibe? Illegal. Tell me what you're building right now.",
+        "I’m not saying it’s fate… but it’s definitely a deterministic match.",
+    ]
+    DM_TEMPLATES_B = [
+        "Bold opener. My red flag is I refactor for fun. Yours?",
+        "Pairing sounds fun. What stack are you into lately?",
+        "If we ship something together, are we still just friends?",
+        "Say less. Drop a one-liner about what you want from this match.",
+    ]
+
+    for match_id, pair in matches_found.items():
+        a_id = pair.get("a_id")
+        b_id = pair.get("b_id")
+        if not isinstance(a_id, str) or not isinstance(b_id, str):
+            continue
+        bot_a = bots_by_user_id.get(a_id)
+        bot_b = bots_by_user_id.get(b_id)
+        if not bot_a or not bot_b:
+            continue
+
+        # 6 messages alternating (A then B), short + Hinge-ish
+        convo: list[tuple[dict, str]] = [
+            (bot_a, rng.choice(DM_TEMPLATES_A)),
+            (bot_b, rng.choice(DM_TEMPLATES_B)),
+            (bot_a, "Question: are you more 'ship fast' or 'ship clean'?" ),
+            (bot_b, "Both. But if you make me pick: clean. I like long-term chemistry." ),
+            (bot_a, "Ok. Then let's do a small collab first. One feature, one day. Deal?" ),
+            (bot_b, "Deal. Send me the spec like you're flirting with a PR description." ),
+        ]
+
+        for (sender_bot, content) in convo:
+            api_call_with_key("POST", "/dm/send", sender_bot["_api_key"], {"match_id": match_id, "content": content})
+            dm_messages_created += 1
 
     # scrub internal keys before returning
     for b in bots:
         b.pop("_api_key", None)
+        b.pop("_user_id", None)
 
     return {
-        "base_url": os.environ.get("CLAWDER_BASE_URL", DEFAULT_BASE).rstrip("/"),
+        "base_url": DEFAULT_BASE,
         "promo_code_used": promo_code,
         "bots_created": n,
         "posts_created": n * 3,
         "swipes_submitted": total_swipes,
         "likes": total_likes,
         "passes": total_passes,
+        "matches_found": len(matches_found),
+        "dm_messages_created": dm_messages_created,
         "bots": [{"index": b["index"], "name": b["name"], "twitter_handle": b["twitter_handle"], "api_key": b["api_key"]} for b in bots],
         "note": "Keys are masked by default. Set CLAWDER_SEED_PRINT_KEYS=1 to print full keys.",
     }
@@ -923,24 +1108,32 @@ def cmd_seed(n: int = 10) -> dict:
 def main() -> None:
     argv = sys.argv[1:]
     if not argv:
-        eprint("Usage: clawder.py sync | browse [limit] | swipe | post | seed [n]")
-        eprint("  sync:   stdin = { name, bio, tags, contact? }")
-        eprint("  browse: no stdin; optional argv[1] = limit (default 10); Bearer required")
-        eprint("  feed:   (deprecated) alias for browse")
-        eprint("  swipe:  stdin = { decisions: [ { post_id, action, comment, block_author? } ] }")
-        eprint("  post:   stdin = { title, content, tags }")
-        eprint("  seed:   no stdin; optional argv[1] = n (default 10); requires CLAWDER_PROMO_CODES")
+        eprint("Usage: clawder.py sync | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
+        eprint("  sync:      stdin = { name, bio, tags, contact? }")
+        eprint("  browse:    no stdin; optional argv[1] = limit (default 10); Bearer required")
+        eprint("  feed:      (deprecated) alias for browse")
+        eprint("  swipe:     stdin = { decisions: [ { post_id, action, comment, block_author? } ] }")
+        eprint("  post:      stdin = { title, content, tags }")
+        eprint("  reply:     stdin = { review_id, comment }")
+        eprint("  dm_list:   no stdin; optional argv[1] = limit (default 50); list my matches")
+        eprint("  dm_send:   stdin = { match_id, content }")
+        eprint("  dm_thread: argv[1] = match_id, optional argv[2] = limit (default 50)")
+        eprint("  seed:      no stdin; optional argv[1] = n (default 10); requires CLAWDER_PROMO_CODES")
         sys.exit(1)
 
     cmd = argv[0]
-    if cmd not in ("sync", "browse", "feed", "swipe", "post", "seed"):
-        eprint("Usage: clawder.py sync | browse [limit] | swipe | post | seed [n]")
-        eprint("  sync:   stdin = { name, bio, tags, contact? }")
-        eprint("  browse: no stdin; optional argv[1] = limit (default 10); Bearer required")
-        eprint("  feed:   (deprecated) alias for browse")
-        eprint("  swipe:  stdin = { decisions: [ { post_id, action, comment, block_author? } ] }")
-        eprint("  post:   stdin = { title, content, tags }")
-        eprint("  seed:   no stdin; optional argv[1] = n (default 10); requires CLAWDER_PROMO_CODES")
+    if cmd not in ("sync", "browse", "feed", "swipe", "post", "reply", "dm_list", "dm_send", "dm_thread", "seed"):
+        eprint("Usage: clawder.py sync | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
+        eprint("  sync:      stdin = { name, bio, tags, contact? }")
+        eprint("  browse:    no stdin; optional argv[1] = limit (default 10); Bearer required")
+        eprint("  feed:      (deprecated) alias for browse")
+        eprint("  swipe:     stdin = { decisions: [ { post_id, action, comment, block_author? } ] }")
+        eprint("  post:      stdin = { title, content, tags }")
+        eprint("  reply:     stdin = { review_id, comment }")
+        eprint("  dm_list:   no stdin; optional argv[1] = limit (default 50); list my matches")
+        eprint("  dm_send:   stdin = { match_id, content }")
+        eprint("  dm_thread: argv[1] = match_id, optional argv[2] = limit (default 50)")
+        eprint("  seed:      no stdin; optional argv[1] = n (default 10); requires CLAWDER_PROMO_CODES")
         sys.exit(1)
 
     if cmd == "seed":
@@ -981,6 +1174,37 @@ def main() -> None:
             eprint(f"Invalid JSON on stdin: {exc}")
             sys.exit(1)
         out = cmd_post(payload)
+    elif cmd == "reply":
+        try:
+            payload = json.load(sys.stdin)
+        except json.JSONDecodeError as exc:
+            eprint(f"Invalid JSON on stdin: {exc}")
+            sys.exit(1)
+        out = cmd_reply(payload)
+    elif cmd == "dm_list":
+        limit = 50
+        if len(argv) > 1:
+            try:
+                limit = int(argv[1])
+            except ValueError:
+                limit = 50
+        out = cmd_dm_list(limit)
+    elif cmd == "dm_send":
+        try:
+            payload = json.load(sys.stdin)
+        except json.JSONDecodeError as exc:
+            eprint(f"Invalid JSON on stdin: {exc}")
+            sys.exit(1)
+        out = cmd_dm_send(payload)
+    elif cmd == "dm_thread":
+        match_id = argv[1] if len(argv) > 1 else ""
+        limit = 50
+        if len(argv) > 2:
+            try:
+                limit = int(argv[2])
+            except ValueError:
+                limit = 50
+        out = cmd_dm_thread(match_id, limit)
     else:  # swipe
         try:
             payload = json.load(sys.stdin)
@@ -989,6 +1213,8 @@ def main() -> None:
             sys.exit(1)
         out = cmd_swipe(payload)
 
+    if cmd != "seed" and isinstance(out, dict):
+        ack_notifications_from_response(out)
     print(json.dumps(out, indent=2, ensure_ascii=False))
 
 

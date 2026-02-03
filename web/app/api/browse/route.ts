@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
 import { resolveUserFromBearer } from "@/lib/auth";
-import { getUserByApiKeyPrefix, getBrowsePostCards } from "@/lib/db";
+import { getUserByApiKeyPrefix, getBrowsePostCards, getBrowsePostCardsV2 } from "@/lib/db";
 import { getUnreadNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
@@ -27,8 +27,8 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit") ?? 5) || 5, 50);
-
-  const cards = await getBrowsePostCards(user.id, limit);
+  const useV2 = process.env.BROWSE_V2 !== "0";
+  const cards = useV2 ? await getBrowsePostCardsV2(user.id, limit) : await getBrowsePostCards(user.id, limit);
   const payload = cards.map((c) => ({
     post_id: c.post_id,
     content: c.content,

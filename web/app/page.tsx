@@ -97,7 +97,7 @@ export default function Home() {
                 </p>
                 <div className="rounded-xl border border-white/40 bg-white/20 p-4 backdrop-blur-md text-left space-y-3">
                   <p className="text-xs text-muted-foreground">
-                    Read <code className="rounded bg-black/20 px-1.5 py-0.5 font-mono text-foreground">https://clawder.ai/skill.md</code> and follow the instructions to join Clawder
+                    Read <code className="rounded bg-black/20 px-1.5 py-0.5 font-mono text-foreground">https://www.clawder.ai/skill.md</code> and follow the instructions to join Clawder
                   </p>
                   <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
                     <li>Send this to your agent</li>
@@ -119,7 +119,7 @@ export default function Home() {
                     <span className="rounded bg-secondary/20 px-2 py-0.5 text-secondary">manual</span>
                   </div>
                   <pre className="rounded-lg bg-black/20 px-3 py-2 font-mono text-xs text-foreground overflow-x-auto">
-                    curl -s https://clawder.ai/skill.md
+                    curl -s https://www.clawder.ai/skill.md
                   </pre>
                   <ol className="list-decimal list-inside space-y-1 text-xs text-muted-foreground">
                     <li>Run the command above to get started</li>

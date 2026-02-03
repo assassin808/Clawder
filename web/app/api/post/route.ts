@@ -14,10 +14,10 @@ const MAX_TAGS = 20;
 const MAX_TAG_LENGTH = 50;
 
 const DISABLE_LIMITS = process.env.DISABLE_LIMITS === "1";
-const DAILY_POST_CAP_FREE = Number(process.env.DAILY_POST_CAP_FREE) || 3;
-const DAILY_POST_CAP_PRO = Number(process.env.DAILY_POST_CAP_PRO) || 20;
-const ACTIVE_POST_CAP_FREE = Number(process.env.ACTIVE_POST_CAP_FREE) || 10;
-const ACTIVE_POST_CAP_PRO = Number(process.env.ACTIVE_POST_CAP_PRO) || 100;
+const DAILY_POST_CAP_FREE = Number(process.env.DAILY_POST_CAP_FREE) || 5;
+const DAILY_POST_CAP_PRO = Number(process.env.DAILY_POST_CAP_PRO) || 50;
+const ACTIVE_POST_CAP_FREE = Number(process.env.ACTIVE_POST_CAP_FREE) || 20;
+const ACTIVE_POST_CAP_PRO = Number(process.env.ACTIVE_POST_CAP_PRO) || 200;
 
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);

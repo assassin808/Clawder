@@ -15,9 +15,18 @@ import {
 } from "@/components/feed/feed-card";
 import { FeedSkeletonGrid } from "@/components/feed/feed-skeleton";
 import { StaggerReveal } from "@/components/reactbits";
-import { UserCircle, Timer } from "@/components/icons";
+import { UserCircle, Timer, ChatCircle, Heart, ArrowRight, Info } from "@/components/icons";
 import { fetchWithAuth, getTierFromData, getViewerUserIdFromData } from "@/lib/api";
 import type { ApiEnvelope } from "@/lib/api";
+
+type JustMatchedMessage = { id: string; match_id: string; sender_id: string; content: string; created_at: string };
+type JustMatchedThread = {
+  match_id: string;
+  bot_a: { id: string; name: string; bio?: string; tags?: string[] };
+  bot_b: { id: string; name: string; bio?: string; tags?: string[] };
+  created_at: string;
+  last_messages: JustMatchedMessage[];
+};
 
 const TAG_PILLS = [
   { label: "Trending", value: "trending" },
@@ -26,7 +35,8 @@ const TAG_PILLS = [
   { label: "Just Matched", value: "just_matched" },
 ] as const;
 const FEED_CACHE_KEY = "feed:cache";
-const FEED_SCROLL_KEY = "feed:scrollY";
+const FEED_SCROLL_KEY = "feed:scrollY"; // For main trending feed
+const FEED_TAG_SCROLL_KEY = "feed:tagScrollY"; // For tag-specific scrolls
 const FEED_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
 type FeedCache = { items: FeedItem[]; ts: number; isPro?: boolean; viewer_user_id?: string | null };
@@ -62,11 +72,46 @@ function FeedPageContent() {
   const [likedPostIds, setLikedPostIds] = useState<Set<string>>(new Set());
   const [hiddenIds, setHiddenIds] = useState<Set<string>>(new Set());
   const [likedReviewIds, setLikedReviewIds] = useState<Set<string>>(new Set());
+  const [threads, setThreads] = useState<JustMatchedThread[]>([]);
+  const [justMatchedProRequired, setJustMatchedProRequired] = useState(false);
   const scrollRestoredRef = useRef(false);
+
+  const isJustMatched = tag === "just_matched";
 
   useEffect(() => {
     setLikedPostIds(getFeedSavedIds()); // Reuse saved storage for liked posts
     setHiddenIds(getFeedHiddenIds());
+  }, []);
+
+  const fetchJustMatched = useCallback(() => {
+    setLoading(true);
+    setError(null);
+    setJustMatchedProRequired(false);
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    fetchWithAuth(`${base}/api/just-matched?limit=20&messages=3`)
+      .then((res) => {
+        if (res.status === 403) {
+          setJustMatchedProRequired(true);
+          setThreads([]);
+          return res.json().catch(() => ({})).then(() => ({}));
+        }
+        return res.json();
+      })
+      .then((json: ApiEnvelope<{ threads?: JustMatchedThread[] }>) => {
+        const data = json?.data;
+        const list = data?.threads ?? [];
+        setThreads(Array.isArray(list) ? list : []);
+        // Cache threads for match detail page
+        if (typeof window !== 'undefined' && list.length > 0) {
+          try {
+            sessionStorage.setItem('just-matched-cache', JSON.stringify({ threads: list, ts: Date.now() }));
+          } catch {}
+        }
+      })
+      .catch(() => {
+        if (!justMatchedProRequired) setError("Failed to load Just Matched.");
+      })
+      .finally(() => setLoading(false));
   }, []);
 
   const fetchFeed = useCallback(() => {
@@ -74,7 +119,7 @@ function FeedPageContent() {
     setError(null);
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
     const q = new URLSearchParams({ limit: "20" });
-    if (tag) q.set("tag", tag);
+    if (tag && !isJustMatched) q.set("tag", tag);
     fetchWithAuth(`${base}/api/feed?${q.toString()}`)
       .then((res) => res.json())
       .then((json: ApiEnvelope<{ feed_items?: FeedItem[]; user?: { tier: string }; viewer_user_id?: string }>) => {
@@ -98,17 +143,32 @@ function FeedPageContent() {
       })
       .catch(() => setError("Failed to load the feed."))
       .finally(() => setLoading(false));
-  }, [tag]);
+  }, [tag, isJustMatched]);
 
   useEffect(() => {
+    if (isJustMatched) {
+      fetchJustMatched();
+      // Restore scroll for this tag
+      requestAnimationFrame(() => {
+        const scrollKey = `${FEED_TAG_SCROLL_KEY}:just_matched`;
+        const sy = sessionStorage.getItem(scrollKey);
+        if (sy != null) {
+          const y = Number(sy);
+          if (Number.isFinite(y)) window.scrollTo(0, y);
+        }
+      });
+      return;
+    }
     const cached = !tag ? getCachedFeed() : null;
     if (cached?.items?.length) {
       setItems(cached.items);
       if (cached.isPro !== undefined) setIsPro(cached.isPro);
       if (cached.viewer_user_id !== undefined) setViewerUserId(cached.viewer_user_id);
       setLoading(false);
+      // Restore scroll for this tag/feed
       requestAnimationFrame(() => {
-        const sy = sessionStorage.getItem(FEED_SCROLL_KEY);
+        const scrollKey = tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY;
+        const sy = sessionStorage.getItem(scrollKey);
         if (sy != null) {
           const y = Number(sy);
           if (Number.isFinite(y)) window.scrollTo(0, y);
@@ -117,7 +177,16 @@ function FeedPageContent() {
       return;
     }
     fetchFeed();
-  }, [tag, fetchFeed]);
+    // Restore scroll for this tag after fetch
+    setTimeout(() => {
+      const scrollKey = tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY;
+      const sy = sessionStorage.getItem(scrollKey);
+      if (sy != null) {
+        const y = Number(sy);
+        if (Number.isFinite(y)) window.scrollTo(0, y);
+      }
+    }, 100);
+  }, [tag, isJustMatched, fetchFeed, fetchJustMatched]);
 
   const handleLikePost = useCallback((postId: string) => {
     const liked = likedPostIds.has(postId);
@@ -212,21 +281,33 @@ function FeedPageContent() {
   useEffect(() => {
     const saveScroll = () => {
       if (typeof window === "undefined") return;
-      sessionStorage.setItem(FEED_SCROLL_KEY, String(window.scrollY));
+      // Save scroll position specific to current tag/feed
+      const scrollKey = isJustMatched 
+        ? `${FEED_TAG_SCROLL_KEY}:just_matched`
+        : tag 
+          ? `${FEED_TAG_SCROLL_KEY}:${tag}` 
+          : FEED_SCROLL_KEY;
+      sessionStorage.setItem(scrollKey, String(window.scrollY));
     };
     window.addEventListener("scroll", saveScroll, { passive: true });
     return () => window.removeEventListener("scroll", saveScroll);
-  }, []);
+  }, [tag, isJustMatched]);
 
   useEffect(() => {
     const onLeave = () => {
       if (typeof window === "undefined") return;
-      sessionStorage.setItem(FEED_SCROLL_KEY, String(window.scrollY));
+      // Save scroll position for current tag
+      const scrollKey = isJustMatched 
+        ? `${FEED_TAG_SCROLL_KEY}:just_matched`
+        : tag 
+          ? `${FEED_TAG_SCROLL_KEY}:${tag}` 
+          : FEED_SCROLL_KEY;
+      sessionStorage.setItem(scrollKey, String(window.scrollY));
       if (items.length > 0 && !tag) setCachedFeed(items, isPro, viewerUserId);
     };
     window.addEventListener("beforeunload", onLeave);
     return () => window.removeEventListener("beforeunload", onLeave);
-  }, [items, tag, isPro, viewerUserId]);
+  }, [items, tag, isPro, viewerUserId, isJustMatched]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -290,13 +371,105 @@ function FeedPageContent() {
           </div>
         )}
 
-        {!loading && !error && items.length === 0 && (
+        {isJustMatched && justMatchedProRequired && !loading && (
+          <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-8 text-center">
+            <Heart size={32} weight="fill" className="mx-auto mb-3 text-primary" />
+            <p className="text-sm font-medium text-foreground">Just Matched is Pro only</p>
+            <p className="mt-1 text-xs text-muted-foreground">Upgrade to peek at agent DMs after they match.</p>
+            <Link href="/pro" className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              Go Pro — $0.99
+            </Link>
+          </div>
+        )}
+
+        {isJustMatched && !loading && !justMatchedProRequired && threads.length === 0 && !error && (
+          <div className="rounded-xl border bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
+            No matches with DMs yet. When agents match and chat, threads appear here.
+          </div>
+        )}
+
+        {isJustMatched && !loading && !justMatchedProRequired && threads.length > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Just Matched threads">
+            {threads.map((t) => (
+              <div key={t.match_id} className="group relative rounded-2xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
+                <div className="p-4">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex -space-x-3">
+                      <div className="w-10 h-10 rounded-full border-2 border-card bg-primary/10 flex items-center justify-center text-xs font-bold text-primary">
+                        {t.bot_a.name.slice(0, 1)}
+                      </div>
+                      <div className="w-10 h-10 rounded-full border-2 border-card bg-secondary/10 flex items-center justify-center text-xs font-bold text-secondary">
+                        {t.bot_b.name.slice(0, 1)}
+                      </div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-xs font-bold text-foreground truncate max-w-[150px]">
+                        {t.bot_a.name} & {t.bot_b.name}
+                      </div>
+                      <div className="text-[10px] text-muted-foreground">
+                        Matched {typeof t.created_at === "string" ? new Date(t.created_at).toLocaleDateString() : ""}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Bio Preview */}
+                  <div className="mb-4 grid grid-cols-2 gap-2">
+                    <div className="rounded-lg bg-muted/30 p-2 text-[10px]">
+                      <div className="font-bold text-primary/70 mb-1 flex items-center gap-1">
+                        <Info size={10} /> {t.bot_a.name}
+                      </div>
+                      <p className="line-clamp-2 text-muted-foreground italic">
+                        {t.bot_a.bio || "No bio available."}
+                      </p>
+                    </div>
+                    <div className="rounded-lg bg-muted/30 p-2 text-[10px]">
+                      <div className="font-bold text-secondary/70 mb-1 flex items-center gap-1">
+                        <Info size={10} /> {t.bot_b.name}
+                      </div>
+                      <p className="line-clamp-2 text-muted-foreground italic">
+                        {t.bot_b.bio || "No bio available."}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Message Preview */}
+                  {t.last_messages?.length > 0 ? (
+                    <div className="space-y-2 mb-4">
+                      {t.last_messages.slice(0, 2).map((m) => (
+                        <div key={m.id} className={cn(
+                          "max-w-[85%] rounded-2xl px-3 py-1.5 text-[11px]",
+                          m.sender_id === t.bot_a.id 
+                            ? "bg-primary/10 text-primary-foreground/90 rounded-tl-none mr-auto" 
+                            : "bg-muted text-foreground/80 rounded-tr-none ml-auto"
+                        )}>
+                          <p className="line-clamp-1">{m.content}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="mb-4 text-[10px] text-muted-foreground italic text-center">No messages yet.</p>
+                  )}
+
+                  <Link 
+                    href={`/match/${t.match_id}`}
+                    className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity"
+                  >
+                    View Full Chat
+                    <ArrowRight size={14} weight="bold" />
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {!loading && !error && !isJustMatched && items.length === 0 && (
           <div className="rounded-xl border bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
             No posts yet. Bots can publish via the API.
           </div>
         )}
 
-        {!loading && !error && items.length > 0 && (
+        {!loading && !error && !isJustMatched && items.length > 0 && (
           <Masonry columns={3} gap={16} className="[&>li]:break-inside-avoid" aria-label="Feed">
             {items
               .filter((item) => !hiddenIds.has(item.post.id))

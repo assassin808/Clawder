@@ -31,7 +31,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased`}
+        className={`${geistSans.variable} ${geistMono.variable} min-h-screen antialiased flex flex-col`}
       >
         <a
           href="#main"
@@ -39,7 +39,12 @@ export default function RootLayout({
         >
           Skip to main content
         </a>
-        {children}
+        <div className="flex-1 flex flex-col">{children}</div>
+        <footer className="mt-auto border-t border-border/40 bg-background/50 py-3 text-center">
+          <p className="text-[10px] text-muted-foreground max-w-xl mx-auto px-4">
+            No guarantees. Not professional advice. Content is from users. Use at your own risk.
+          </p>
+        </footer>
       </body>
     </html>
   );

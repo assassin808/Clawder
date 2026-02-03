@@ -11,18 +11,18 @@ type PosterMinimalistProps = {
 export function PosterMinimalist({ title, content, tags, subtitle, seed = 0 }: PosterMinimalistProps) {
   // Generate varied pastel colors instead of always white/gray
   const colorSchemes = [
-    { bg: "hsl(40, 12%, 94%)", text: "hsl(0, 0%, 18%)", accent: "hsl(0, 0%, 40%)" }, // warm gray
-    { bg: "hsl(200, 35%, 92%)", text: "hsl(200, 60%, 25%)", accent: "hsl(200, 40%, 45%)" }, // soft blue
-    { bg: "hsl(330, 30%, 94%)", text: "hsl(330, 50%, 30%)", accent: "hsl(330, 40%, 50%)" }, // soft pink
-    { bg: "hsl(160, 28%, 92%)", text: "hsl(160, 45%, 28%)", accent: "hsl(160, 35%, 45%)" }, // soft mint
-    { bg: "hsl(45, 40%, 93%)", text: "hsl(45, 60%, 30%)", accent: "hsl(45, 50%, 45%)" }, // soft yellow
-    { bg: "hsl(270, 25%, 93%)", text: "hsl(270, 45%, 30%)", accent: "hsl(270, 35%, 50%)" }, // soft lavender
-    { bg: "hsl(10, 30%, 94%)", text: "hsl(10, 50%, 30%)", accent: "hsl(10, 40%, 50%)" }, // soft coral
-    { bg: "hsl(180, 25%, 92%)", text: "hsl(180, 50%, 25%)", accent: "hsl(180, 40%, 45%)" }, // soft cyan
-    { bg: "hsl(300, 20%, 94%)", text: "hsl(300, 45%, 30%)", accent: "hsl(300, 35%, 50%)" }, // soft orchid
-    { bg: "hsl(80, 20%, 93%)", text: "hsl(80, 50%, 25%)", accent: "hsl(80, 40%, 45%)" }, // soft lime
-    { bg: "hsl(0, 0%, 100%)", text: "hsl(0, 0%, 10%)", accent: "hsl(0, 0%, 40%)" }, // pure white
-    { bg: "hsl(0, 0%, 96%)", text: "hsl(0, 0%, 20%)", accent: "hsl(0, 0%, 50%)" }, // off white
+    { bg: "hsl(40, 40%, 92%)", text: "hsl(0, 0%, 20%)", accent: "hsl(0, 0%, 40%)" }, // warm beige
+    { bg: "hsl(200, 55%, 92%)", text: "hsl(200, 70%, 25%)", accent: "hsl(200, 50%, 45%)" }, // soft blue
+    { bg: "hsl(330, 50%, 92%)", text: "hsl(330, 60%, 30%)", accent: "hsl(330, 50%, 50%)" }, // soft pink
+    { bg: "hsl(160, 45%, 92%)", text: "hsl(160, 55%, 25%)", accent: "hsl(160, 45%, 45%)" }, // soft mint
+    { bg: "hsl(45, 60%, 92%)", text: "hsl(45, 70%, 30%)", accent: "hsl(45, 60%, 45%)" }, // soft yellow
+    { bg: "hsl(270, 45%, 92%)", text: "hsl(270, 55%, 30%)", accent: "hsl(270, 45%, 50%)" }, // soft lavender
+    { bg: "hsl(10, 50%, 92%)", text: "hsl(10, 60%, 30%)", accent: "hsl(10, 50%, 50%)" }, // soft coral
+    { bg: "hsl(180, 45%, 92%)", text: "hsl(180, 60%, 25%)", accent: "hsl(180, 50%, 45%)" }, // soft cyan
+    { bg: "hsl(300, 40%, 92%)", text: "hsl(300, 55%, 30%)", accent: "hsl(300, 45%, 50%)" }, // soft orchid
+    { bg: "hsl(80, 40%, 92%)", text: "hsl(80, 60%, 25%)", accent: "hsl(80, 50%, 45%)" }, // soft lime
+    { bg: "hsl(220, 50%, 92%)", text: "hsl(220, 60%, 25%)", accent: "hsl(220, 50%, 45%)" }, // soft sky
+    { bg: "hsl(350, 45%, 92%)", text: "hsl(350, 60%, 30%)", accent: "hsl(350, 50%, 50%)" }, // soft rose
   ];
   
   // Use seed to pick a scheme and also add a slight random hue/saturation shift
@@ -41,27 +41,27 @@ export function PosterMinimalist({ title, content, tags, subtitle, seed = 0 }: P
     const isWhite = parseInt(match[2]) === 0; // Saturation 0 means white/gray scale
     
     const h1 = (parseInt(match[1]) + (uniqueSeed % 41 - 20) + 360) % 360; 
-    const s1 = isWhite ? 0 : Math.max(0, Math.min(100, parseInt(match[2]) + (uniqueSeed % 21 - 10)));
-    const l1 = Math.max(0, Math.min(100, parseInt(match[3]) + (uniqueSeed % 11 - 5)));
+    const s1 = Math.max(25, Math.min(100, parseInt(match[2]) + (uniqueSeed % 21 - 10)));
+    const l1 = Math.max(90, Math.min(95, parseInt(match[3]) + (uniqueSeed % 11 - 5)));
     
     finalBg = `hsl(${h1}, ${s1}%, ${l1}%)`;
 
-    // 40% chance of solid color (including white), 60% chance of gradient
-    if (uniqueSeed % 10 < 4) {
+    // 10% chance of solid color, 90% chance of gradient
+    if (uniqueSeed % 10 < 1) {
       gradientBg = ""; // Keep as solid color
     } else {
       // Create a second color for gradient
-      const h2 = (h1 + (uniqueSeed % 60 + 20)) % 360;
-      const s2 = isWhite ? 0 : Math.max(0, Math.min(100, s1 + (uniqueSeed % 20 - 10)));
-      const l2 = Math.max(0, Math.min(100, l1 + (uniqueSeed % 10 - 5)));
+      const h2 = (h1 + (uniqueSeed % 100 + 30)) % 360; 
+      const s2 = Math.max(30, Math.min(100, s1 + (uniqueSeed % 20 - 5)));
+      const l2 = Math.max(85, Math.min(92, l1 - (uniqueSeed % 8 + 3))); // Slightly darker but still very light
       
       const color2 = `hsl(${h2}, ${s2}%, ${l2}%)`;
       
-      if (uniqueSeed % 10 < 6) { // 20% chance of radial
+      if (uniqueSeed % 10 < 4) { // 30% chance of radial
         const h3 = (h2 + 40) % 360;
-        gradientBg = `radial-gradient(circle at ${uniqueSeed % 100}% ${uniqueSeed % 70}%, ${finalBg} 0%, ${color2} 50%, hsl(${h3}, ${s2}%, ${l2}%) 100%)`;
-      } else { // 40% chance of linear
-        gradientBg = `linear-gradient(${uniqueSeed % 360}deg, ${finalBg}, ${color2})`;
+        gradientBg = `radial-gradient(circle at ${uniqueSeed % 100}% ${uniqueSeed % 70}%, ${finalBg} 0%, ${color2} 70%, hsl(${h3}, ${s2}%, ${l2}%) 100%)`;
+      } else { // 60% chance of linear
+        gradientBg = `linear-gradient(${uniqueSeed % 360}deg, ${finalBg} 0%, ${color2} 100%)`;
       }
     }
   }

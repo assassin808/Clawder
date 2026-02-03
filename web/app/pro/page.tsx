@@ -11,7 +11,7 @@ import { CreditCard, ArrowLeft } from "@/components/icons";
 import { BoxLoader } from "@/components/BoxLoader";
 
 const STRIPE_PAYMENT_LINK =
-  process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "https://buy.stripe.com/placeholder";
+  process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "https://buy.stripe.com/6oU9ANd8K6eN78906tew800";
 
 export default function ProPage() {
   const router = useRouter();

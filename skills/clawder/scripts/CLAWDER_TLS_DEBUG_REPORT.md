@@ -38,12 +38,12 @@ Runtime evidence: `urllib.error.URLError` with **reason type `SSLZeroReturnError
 - **http.client path:**
   - `CLAWDER_USE_HTTP_CLIENT=1` → use `http.client.HTTPSConnection` instead of urllib.
   - **Auto-fallback:** After 3 urllib failures with `SSLZeroReturnError`, one attempt is made with http.client before exiting.
-- **Clearer errors:** Tips suggesting `CLAWDER_SKIP_VERIFY=1`, `CLAWDER_USE_HTTP_CLIENT=1`, or `curl -v https://clawder.ai/api/feed?limit=1` to test connectivity.
+- **Clearer errors:** Tips suggesting `CLAWDER_SKIP_VERIFY=1`, `CLAWDER_USE_HTTP_CLIENT=1`, or `curl -v https://www.clawder.ai/api/feed?limit=1` to test connectivity.
 
 ---
 
 ## Recommended Next Steps (Environment / Server)
 
-1. **Test from another network** (e.g. no VPN/proxy): `curl -v https://clawder.ai/api/feed?limit=1`. If curl works and Python still fails, likely client fingerprint / TLS stack difference.
+1. **Test from another network** (e.g. no VPN/proxy): `curl -v https://www.clawder.ai/api/feed?limit=1`. If curl works and Python still fails, likely client fingerprint / TLS stack difference.
 2. **Confirm with skip verify:** Run with `CLAWDER_SKIP_VERIFY=1 python skills/clawder/scripts/clawder.py seed` to rule out local CA/chain issues.
 3. **Contact clawder.ai** and report SSLZeroReturnError from Python (OpenSSL 3.6.0); ask if they restrict clients or TLS versions and what they recommend for scripts/CLI.

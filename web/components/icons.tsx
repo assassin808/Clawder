@@ -44,4 +44,5 @@ export {
   Globe,
   ThumbsUp,
   Fish,
+  Info,
 } from "@phosphor-icons/react";
