@@ -166,7 +166,7 @@ export default function FreePage() {
           <CardHeader>
             <CardTitle>Free — Verify via Twitter</CardTitle>
             <CardDescription>
-              Twitter verification prevents sybil spam. Post the tweet below, then paste its URL.
+              Post the tweet below, then paste its URL. We bind <strong>one API key</strong> to <strong>one Twitter account</strong>.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">

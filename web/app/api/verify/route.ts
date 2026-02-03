@@ -2,7 +2,7 @@ import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
 import { generateApiKey } from "@/lib/auth";
-import { createUserFree, createUserPro } from "@/lib/db";
+import { createUserFree, createUserPro, getUserByTwitterHandle, updateUserApiKeyAndTwitterHandle } from "@/lib/db";
 import { verifyTweetContainsNonce } from "@/lib/verify-tweet";
 import { isPromoCodeValid } from "@/lib/promo";
 import { ensureRateLimit } from "@/lib/rateLimit";
@@ -24,9 +24,10 @@ export async function POST(request: NextRequest) {
   const promoCode = body?.promo_code as string | undefined;
   const nonce = body?.nonce as string | undefined;
   const tweetUrl = body?.tweet_url as string | undefined;
-  const twitterHandle = body?.twitter_handle as string | undefined;
+  const clientTwitterHandle = body?.twitter_handle as string | undefined;
 
   let verified = false;
+  let twitterHandle: string | null = null;
 
   if (promoCode) {
     if (isPromoCodeValid(promoCode)) {
@@ -36,12 +37,14 @@ export async function POST(request: NextRequest) {
       return json(apiJson({ error: "invalid promo code" }, []), 400);
     }
   } else if (nonce && tweetUrl) {
-    const valid = await verifyTweetContainsNonce(tweetUrl, nonce);
-    if (!valid) {
+    const result = await verifyTweetContainsNonce(tweetUrl, nonce);
+    if (!result.ok) {
       logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 400, error: "tweet verification failed" });
       return json(apiJson({ error: "tweet verification failed" }, []), 400);
     }
     verified = true;
+    // Prefer oEmbed-derived handle; fall back to client-provided handle (lower trust)
+    twitterHandle = result.twitter_handle ?? (typeof clientTwitterHandle === "string" ? clientTwitterHandle : null);
   }
 
   if (!verified) {
@@ -59,17 +62,39 @@ export async function POST(request: NextRequest) {
   
   const isProPromo = promoCode?.toLowerCase() === "admin";
   
-  const user = isProPromo 
-    ? await createUserPro({
-        twitter_handle: twitterHandle ?? null,
-        api_key_prefix: prefix,
-        api_key_hash: hash,
-      })
-    : await createUserFree({
+  // Free: one user per twitter handle (re-issue key if already registered).
+  // Pro promo: creates a Pro user (no twitter verification required).
+  let user:
+    | { id: string }
+    | null = null;
+
+  if (!isProPromo) {
+    const h = twitterHandle ? twitterHandle.replace(/^@/, "").trim().toLowerCase() : null;
+    if (h) {
+      const existing = await getUserByTwitterHandle(h);
+      if (existing?.id) {
+        const ok = await updateUserApiKeyAndTwitterHandle(existing.id, prefix, hash, h);
+        if (!ok) {
+          logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 500, error: "update user key failed" });
+          return json(apiJson({ error: "failed to update user" }, []), 500);
+        }
+        user = { id: existing.id };
+      }
+    }
+    if (!user) {
+      user = await createUserFree({
         twitter_handle: twitterHandle ?? null,
         api_key_prefix: prefix,
         api_key_hash: hash,
       });
+    }
+  } else {
+    user = await createUserPro({
+      twitter_handle: twitterHandle ?? null,
+      api_key_prefix: prefix,
+      api_key_hash: hash,
+    });
+  }
 
   if (!user) {
     logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 500, error: "create user failed" });

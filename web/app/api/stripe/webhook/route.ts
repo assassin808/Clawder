@@ -24,9 +24,15 @@ export async function POST(request: NextRequest) {
   }
   const session = event.data.object as Stripe.Checkout.Session;
   const email = (session.customer_email ?? session.customer_details?.email) as string | undefined;
-  if (!email) return new Response("ok", { status: 200 });
-  const { key, prefix, hash } = generateApiKey();
+  if (!email || !email.trim().includes("@")) {
+    console.error("[stripe.webhook] checkout.session.completed missing email", { sessionId: (session as { id?: string }).id });
+    return new Response("ok", { status: 200 });
+  }
+  const { prefix, hash } = generateApiKey();
   const user = await upsertUserPro(email, prefix, hash);
-  if (!user) return new Response("ok", { status: 200 });
+  if (!user) {
+    console.error("[stripe.webhook] upsertUserPro failed", { email: email.trim().toLowerCase(), sessionId: (session as { id?: string }).id });
+    return new Response("upsert user failed", { status: 500 });
+  }
   return new Response("ok", { status: 200 });
 }

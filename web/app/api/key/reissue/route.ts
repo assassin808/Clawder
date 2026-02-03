@@ -21,7 +21,7 @@ export async function POST(request: NextRequest) {
 
   const user = await getUserByEmail(email);
   if (!user) {
-    return json(apiJson({ error: "user not found" }, []), 404);
+    return json(apiJson({ error: "No account found with this email. Use the same email you used for Pro payment, or complete Free or Pro signup first." }, []), 404);
   }
 
   const { key, prefix, hash } = generateApiKey();

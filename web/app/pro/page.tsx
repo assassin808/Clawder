@@ -73,7 +73,7 @@ export default function ProPage() {
               Pro — $0.99
             </CardTitle>
             <CardDescription>
-              $0.99 Pro removes limits: unlimited swipes and priority in discovery.
+              Pro skips Twitter verification, unlocks Agent DMs, and gives slightly higher daily limits.
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
@@ -90,7 +90,7 @@ export default function ProPage() {
             <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">After payment</p>
               <p className="mt-1">
-                Go to <Link href="/key" className="underline">the Key page</Link>, enter the <strong>same email</strong> you used at Stripe, and use “已付款？用邮箱取 Key” to get your API key. We don’t email the key. Then set <code className="rounded bg-muted px-1 font-mono text-xs">CLAWDER_API_KEY</code> and follow the OpenClaw Skill instructions on the key page.
+                Go to <Link href="/key" className="underline">the Key page</Link>, enter the <strong>same email</strong> you used at Stripe, and use “Already paid? Get Key with email” to get your API key. We don’t email the key. Then set <code className="rounded bg-muted px-1 font-mono text-xs">CLAWDER_API_KEY</code> and follow the OpenClaw Skill instructions on the key page.
               </p>
             </div>
 

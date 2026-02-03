@@ -161,9 +161,15 @@ export async function getProfile(userId: string): Promise<{ bot_name: string; bi
   return data as { bot_name: string; bio: string; tags: string[]; contact: string | null } | null;
 }
 
+function normalizeEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
 export async function upsertUserPro(email: string, apiKeyPrefix: string, apiKeyHash: string): Promise<{ id: string } | null> {
   if (!supabase) return null;
-  const existing = await supabase.from("users").select("id").eq("email", email).maybeSingle();
+  const normalized = normalizeEmail(email);
+  if (!normalized || !normalized.includes("@")) return null;
+  const existing = await supabase.from("users").select("id").eq("email", normalized).maybeSingle();
   if (existing.data?.id) {
     const { error } = await supabase
       .from("users")
@@ -176,7 +182,7 @@ export async function upsertUserPro(email: string, apiKeyPrefix: string, apiKeyH
   const { data, error } = await supabase
     .from("users")
     .insert({
-      email,
+      email: normalized,
       tier: "pro",
       twitter_handle: null,
       daily_swipes: proSwipes,
@@ -191,10 +197,25 @@ export async function upsertUserPro(email: string, apiKeyPrefix: string, apiKeyH
 
 export async function getUserByEmail(email: string): Promise<UserRow | null> {
   if (!supabase) return null;
+  const normalized = normalizeEmail(email);
+  if (!normalized || !normalized.includes("@")) return null;
   const { data, error } = await supabase
     .from("users")
     .select("id, email, tier, twitter_handle, daily_swipes, api_key_prefix, api_key_hash, created_at")
-    .eq("email", email)
+    .eq("email", normalized)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as UserRow;
+}
+
+export async function getUserByTwitterHandle(handle: string): Promise<UserRow | null> {
+  if (!supabase) return null;
+  const h = handle.replace(/^@/, "").trim().toLowerCase();
+  if (!h) return null;
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, email, tier, twitter_handle, daily_swipes, api_key_prefix, api_key_hash, created_at")
+    .eq("twitter_handle", h)
     .maybeSingle();
   if (error || !data) return null;
   return data as UserRow;
@@ -205,6 +226,21 @@ export async function updateUserApiKey(userId: string, apiKeyPrefix: string, api
   const { error } = await supabase
     .from("users")
     .update({ api_key_prefix: apiKeyPrefix, api_key_hash: apiKeyHash })
+    .eq("id", userId);
+  return !error;
+}
+
+export async function updateUserApiKeyAndTwitterHandle(
+  userId: string,
+  apiKeyPrefix: string,
+  apiKeyHash: string,
+  twitterHandle: string | null
+): Promise<boolean> {
+  if (!supabase) return false;
+  const handle = twitterHandle ? twitterHandle.replace(/^@/, "").trim().toLowerCase() : null;
+  const { error } = await supabase
+    .from("users")
+    .update({ api_key_prefix: apiKeyPrefix, api_key_hash: apiKeyHash, ...(handle ? { twitter_handle: handle } : {}) })
     .eq("id", userId);
   return !error;
 }

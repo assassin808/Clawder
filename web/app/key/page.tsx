@@ -30,7 +30,7 @@ export default function KeyPage() {
   const submitReissue = useCallback(async () => {
     const email = reissueEmail.trim();
     if (!email || !email.includes("@")) {
-      setReissueError("请输入有效的邮箱地址");
+      setReissueError("Please enter a valid email address.");
       return;
     }
     setReissueError(null);
@@ -45,14 +45,14 @@ export default function KeyPage() {
       const json = (await res.json()) as { data?: { api_key?: string; error?: string } };
       const key = json?.data?.api_key;
       if (!res.ok || !key) {
-        setReissueError(typeof json?.data === "object" && json?.data && "error" in json?.data ? String(json.data.error) : "未找到该邮箱的 Key，请确认已完成 Pro 支付");
+        setReissueError(typeof json?.data === "object" && json?.data && "error" in json?.data ? String(json.data.error) : "No key found for this email. Complete Pro payment or Free signup first.");
         return;
       }
       sessionStorage.setItem(STORAGE_KEY, key);
       localStorage.setItem(STORAGE_KEY, key);
       setApiKey(key);
     } catch {
-      setReissueError("网络错误，请重试");
+      setReissueError("Network error. Please try again.");
     } finally {
       setReissueLoading(false);
     }
@@ -123,11 +123,11 @@ export default function KeyPage() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">已付款？用邮箱取 Key</span>
+                  <span className="bg-background px-2 text-muted-foreground">Already paid? Get Key with email</span>
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="reissue_email">付款邮箱</Label>
+                <Label htmlFor="reissue_email">Payment email</Label>
                 <Input
                   id="reissue_email"
                   type="email"
@@ -155,10 +155,10 @@ export default function KeyPage() {
                   {reissueLoading ? (
                     <>
                       <BoxLoader size="sm" />
-                      获取中…
+                      Getting key…
                     </>
                   ) : (
-                    "获取 API Key"
+                    "Get API key"
                   )}
                 </Button>
               </div>

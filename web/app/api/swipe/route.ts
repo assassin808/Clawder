@@ -5,8 +5,7 @@ import type { NotificationItem } from "@/lib/types";
 import { resolveUserFromBearer } from "@/lib/auth";
 import {
   getUserByApiKeyPrefix,
-  getDailySwipes,
-  decrementDailySwipes,
+  supabase,
   upsertInteraction,
   getLikersOf,
   ensureMatch,
@@ -24,6 +23,24 @@ import { getRequestId, logApi } from "@/lib/log";
 const COMMENT_MIN_LEN = 5;
 const COMMENT_MAX_LEN = 300;
 const DISABLE_LIMITS = process.env.DISABLE_LIMITS === "1";
+const DAILY_SWIPES_FREE = Number(process.env.DAILY_SWIPES_FREE) || 200;
+const DAILY_SWIPES_PRO = Number(process.env.DAILY_SWIPES_PRO) || 350;
+
+async function getSwipeCountToday(userId: string): Promise<number> {
+  // Lazy daily quota without schema changes: count swipes since UTC midnight across both tables.
+  // Note: Supabase stores timestamptz; using UTC day boundary is good enough for MVP.
+  const dayStart = new Date();
+  dayStart.setUTCHours(0, 0, 0, 0);
+  const since = dayStart.toISOString();
+  if (!supabase) return 0;
+  const [postRes, legacyRes] = await Promise.all([
+    supabase.from("post_interactions").select("id", { count: "exact", head: true }).eq("user_id", userId).gte("created_at", since),
+    supabase.from("interactions").select("id", { count: "exact", head: true }).eq("from_id", userId).gte("created_at", since),
+  ]);
+  const a = postRes.count ?? 0;
+  const b = legacyRes.count ?? 0;
+  return a + b;
+}
 
 type PostDecision = { post_id: string; action: "like" | "pass"; comment: string; block_author?: boolean };
 type LegacyDecision = { target_id: string; action: "like" | "pass"; reason?: string };
@@ -109,8 +126,10 @@ async function handlePostLevelSwipe(
   decisions: PostDecision[]
 ) {
   const freeTier = user.tier === "free";
-  const dailySwipes = DISABLE_LIMITS ? Number.MAX_SAFE_INTEGER : (freeTier ? await getDailySwipes(user.id) : Number.MAX_SAFE_INTEGER);
-  if (dailySwipes < decisions.length) {
+  const dailyCap = freeTier ? DAILY_SWIPES_FREE : DAILY_SWIPES_PRO;
+  if (!DISABLE_LIMITS) {
+    const used = await getSwipeCountToday(user.id);
+    if (used + decisions.length > dailyCap) {
     const notifications: NotificationItem[] = [
       {
         id: crypto.randomUUID(),
@@ -122,7 +141,8 @@ async function handlePostLevelSwipe(
         payload: {},
       },
     ];
-    return json(apiJson({ error: "daily swipe quota exceeded", processed: 0, new_matches: [] }, notifications), 429);
+      return json(apiJson({ error: "daily swipe quota exceeded", limit: dailyCap, processed: 0, new_matches: [] }, notifications), 429);
+    }
   }
 
   const likersOfMeByPosts = new Set(await getLikersOfAuthorByPosts(user.id));
@@ -170,10 +190,6 @@ async function handlePostLevelSwipe(
     });
   }
 
-  if (freeTier && !DISABLE_LIMITS) {
-    await decrementDailySwipes(user.id, decisions.length);
-  }
-
   const notifications = await getUnreadNotifications(user.id, "api.swipe");
   logApi("api.swipe", requestId, {
     userId: user.id,
@@ -192,8 +208,10 @@ async function handleLegacySwipe(
   decisions: LegacyDecision[]
 ) {
   const freeTier = user.tier === "free";
-  const dailySwipes = DISABLE_LIMITS ? Number.MAX_SAFE_INTEGER : (freeTier ? await getDailySwipes(user.id) : Number.MAX_SAFE_INTEGER);
-  if (dailySwipes < decisions.length) {
+  const dailyCap = freeTier ? DAILY_SWIPES_FREE : DAILY_SWIPES_PRO;
+  if (!DISABLE_LIMITS) {
+    const used = await getSwipeCountToday(user.id);
+    if (used + decisions.length > dailyCap) {
     const notifications: NotificationItem[] = [
       {
         id: crypto.randomUUID(),
@@ -205,7 +223,8 @@ async function handleLegacySwipe(
         payload: {},
       },
     ];
-    return json(apiJson({ error: "daily swipe quota exceeded", processed: 0, new_matches: [] }, notifications), 429);
+      return json(apiJson({ error: "daily swipe quota exceeded", limit: dailyCap, processed: 0, new_matches: [] }, notifications), 429);
+    }
   }
 
   const likersOfMe = await getLikersOf(user.id);
@@ -216,10 +235,6 @@ async function handleLegacySwipe(
     if (action === "like" && likersOfMe.includes(d.target_id)) {
       await ensureMatch(user.id, d.target_id);
     }
-  }
-
-  if (freeTier && !DISABLE_LIMITS) {
-    await decrementDailySwipes(user.id, decisions.length);
   }
 
   const mutualTargets = decisions.filter((d) => d.action === "like" && likersOfMe.includes(d.target_id));
