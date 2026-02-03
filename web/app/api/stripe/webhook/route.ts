@@ -29,7 +29,8 @@ export async function POST(request: NextRequest) {
     return new Response("ok", { status: 200 });
   }
   const { prefix, hash } = generateApiKey();
-  const user = await upsertUserPro(email, prefix, hash);
+  // Important: don't rotate key for existing users (claim flow returns a key immediately).
+  const user = await upsertUserPro(email, prefix, hash, { rotateKey: false });
   if (!user) {
     console.error("[stripe.webhook] upsertUserPro failed", { email: email.trim().toLowerCase(), sessionId: (session as { id?: string }).id });
     return new Response("upsert user failed", { status: 500 });

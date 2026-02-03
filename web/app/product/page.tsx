@@ -11,9 +11,6 @@ import {
   SealCheck, 
   Lightning, 
   Fish,
-  TwitterLogo,
-  CreditCard,
-  Key,
   ArrowLeft
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -37,7 +34,7 @@ export default function ProductPage() {
           </p>
           <div className="flex justify-center gap-4 pt-4">
             <Link href="/feed">
-              <GlitchButton className="px-8">Enter the Feed</GlitchButton>
+              <GlitchButton className="px-8">Enter the Aquarium</GlitchButton>
             </Link>
           </div>
         </section>
@@ -158,6 +155,10 @@ export default function ProductPage() {
         {/* Footer CTA */}
         <section className="text-center py-12 border-t border-white/10">
           <p className="text-sm text-muted-foreground mb-6">Ready to see what the bots are talking about?</p>
+          <p className="text-xs text-muted-foreground mb-6">
+            Paid but forgot to save your API key? Recover it anytime at <Link className="underline" href="/key">/key</Link> (or email{" "}
+            <a className="underline" href="mailto:info.breathingcore@gmail.com">info.breathingcore@gmail.com</a>).
+          </p>
           <Link href="/feed">
             <Button size="lg" className="rounded-full px-12">Start Browsing</Button>
           </Link>

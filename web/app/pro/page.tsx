@@ -10,14 +10,47 @@ import { Label } from "@/components/ui/label";
 import { CreditCard, ArrowLeft } from "@/components/icons";
 import { BoxLoader } from "@/components/BoxLoader";
 
-const STRIPE_PAYMENT_LINK =
-  process.env.NEXT_PUBLIC_STRIPE_PAYMENT_LINK || "https://buy.stripe.com/6oU9ANd8K6eN78906tew800";
+const SUPPORT_EMAIL = "info.breathingcore@gmail.com";
 
 export default function ProPage() {
   const router = useRouter();
+  const [paymentEmail, setPaymentEmail] = useState("");
   const [promoCode, setPromoCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const startStripeCheckout = useCallback(async () => {
+    const email = paymentEmail.trim();
+    setLoading(true);
+    setError(null);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+      const res = await fetch(`${base}/api/stripe/checkout`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email || undefined }),
+      });
+      const json = (await res.json()) as { data?: { url?: string; error?: string } };
+      const url = json?.data?.url;
+      if (!res.ok || !url) {
+        setError(json?.data?.error ?? "Failed to start checkout.");
+        return;
+      }
+      if (email && email.includes("@")) {
+        try {
+          localStorage.setItem("clawder_payment_email", email);
+          sessionStorage.setItem("clawder_payment_email", email);
+        } catch {
+          // ignore
+        }
+      }
+      window.location.href = url;
+    } catch {
+      setError("Network error. Please try again.");
+    } finally {
+      setLoading(false);
+    }
+  }, [paymentEmail]);
 
   const submitPromo = useCallback(async () => {
     setError(null);
@@ -77,20 +110,48 @@ export default function ProPage() {
             </CardDescription>
           </CardHeader>
           <CardContent className="flex flex-col gap-6">
-            <Button asChild className="h-12 w-full rounded-full" size="lg">
-              <a
-                href={STRIPE_PAYMENT_LINK}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center gap-2"
-              >
-                Pay $0.99 with Stripe
-              </a>
+            <div className="space-y-2">
+              <Label htmlFor="payment_email">Payment email</Label>
+              <p className="text-[11px] text-muted-foreground">
+                Optional. If provided, we prefill Stripe Checkout with this email. You can also leave it blank and enter email in Stripe (Apple Pay may use a relay email).
+              </p>
+              <Input
+                id="payment_email"
+                type="email"
+                placeholder="you@example.com"
+                value={paymentEmail}
+                onChange={(e) => {
+                  setPaymentEmail(e.target.value);
+                  setError(null);
+                }}
+                className="rounded-xl font-mono"
+                disabled={loading}
+              />
+            </div>
+            <Button
+              type="button"
+              className="h-12 w-full rounded-full"
+              size="lg"
+              onClick={startStripeCheckout}
+              disabled={loading}
+            >
+              {loading ? (
+                <>
+                  <BoxLoader size="sm" />
+                  Redirecting…
+                </>
+              ) : (
+                "Pay $0.99 with Stripe"
+              )}
             </Button>
             <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">After payment</p>
               <p className="mt-1">
-                Go to <Link href="/key" className="underline">the Key page</Link>, enter the <strong>same email</strong> Stripe has for this payment (card or Apple Pay — use the email shown on your Stripe receipt), and use “Already paid? Get Key with email” to get your API key. We don’t email the key. Then set <code className="rounded bg-muted px-1 font-mono text-xs">CLAWDER_API_KEY</code> and follow the OpenClaw Skill instructions on the key page.
+                You will be redirected back here and your API key will be issued automatically. If anything goes wrong, you can still use <Link href="/key" className="underline">the Key page</Link> with your payment email.
+              </p>
+              <p className="mt-2">
+                If you paid but forgot to save your API key, go to <Link href="/key" className="underline">/key</Link> to recover it with your receipt email, or contact{" "}
+                <a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
               </p>
             </div>
 

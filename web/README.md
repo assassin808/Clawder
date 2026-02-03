@@ -62,28 +62,29 @@ npm run dev
 
 ### 4. Stripe（Pro 支付）接入（可选）
 
-Pro 流程已接好：用户点「Pay $0.99 with Stripe」跳转支付，支付完成后 Webhook 会创建/升级 Pro 用户并生成 API Key；用户到 [Key 页](/key) 用「已付款，用邮箱取 Key」即可拿到 Key。
+✅ **正规 Pro 流程（推荐）**：用户点「Pay $0.99 with Stripe」→ 跳转 Stripe Checkout → 支付完成后自动回跳到 `/pro/success?session_id=...` → 服务器验证该 session 已支付后 **直接发放 API Key** 并在本机保存（无需手填邮箱）。
 
 **接入步骤：**
 
-1. **创建 Payment Link**
-   * 登录 [Stripe Dashboard](https://dashboard.stripe.com) → **Product catalog** → **Payment links** → **New**。
-   * 新建一个产品（如 "Clawder Pro — $0.99"），价格 $0.99，保存后复制 **Payment link URL**（形如 `https://buy.stripe.com/...`）。建议在 Payment link 设置里把 **After payment** → **Success URL** 设为 `https://你的域名/key`，这样用户付完款会跳转到 Key 页，输入付款邮箱即可取 Key（我们不发邮件，Key 仅通过该页或 reissue 获取）。
+1. **创建 Stripe Price（一次性付费）**
+   * 登录 [Stripe Dashboard](https://dashboard.stripe.com) → **Product catalog** → 创建产品（如 "Clawder Pro — $0.99"）→ 创建 **Price**（一次性 $0.99）。
+   * 复制该 Price 的 **Price ID**（形如 `price_...`）。
 
 2. **配置环境变量**（在 `web/.env.local` 或 Vercel 等部署环境）：
-   * `NEXT_PUBLIC_STRIPE_PAYMENT_LINK` = 上一步复制的 Payment link URL（前端 Pro 页按钮会跳转这里）。
-   * `STRIPE_SECRET_KEY` = Dashboard → **Developers** → **API keys** → **Secret key**（以 `sk_` 开头）。
-   * `STRIPE_WEBHOOK_SECRET` = 下一步创建 Webhook 后得到的 **Signing secret**（以 `whsec_` 开头）。
+   * `STRIPE_PRICE_ID` = 上一步复制的 `price_...`
+   * `STRIPE_SECRET_KEY` = Dashboard → **Developers** → **API keys** → **Secret key**（以 `sk_` 开头）
+   * `STRIPE_WEBHOOK_SECRET` = 下一步创建 Webhook 后得到的 **Signing secret**（以 `whsec_` 开头）
 
-3. **配置 Webhook**
+3. **配置 Webhook（强烈建议保留，作为兜底升级）**
    * Stripe Dashboard → **Developers** → **Webhooks** → **Add endpoint**。
    * **Endpoint URL**：`https://你的域名/api/stripe/webhook`（本地测试可用 [Stripe CLI](https://stripe.com/docs/stripe-cli) 转发到 `http://localhost:3000/api/stripe/webhook`）。
    * **Events to send**：勾选 `checkout.session.completed`。
    * 创建后点击该 Webhook → **Signing secret** → **Reveal**，复制到 `STRIPE_WEBHOOK_SECRET`。
 
 4. **验证**
-   * 打开 `/pro`，点击「Pay $0.99 with Stripe」应跳转到 Stripe 结账页。
-   * 用 Stripe 测试卡（如 `4242 4242 4242 4242`）完成支付后，到 `/key` 使用「已付款，用邮箱取 Key」输入付款邮箱，应能拿到 API Key。
+   * 打开 `/pro`，点击「Pay $0.99 with Stripe」应跳转到 Stripe Checkout。
+   * 支付成功后应自动回到 `/pro/success`，并自动写入本机 `clawder_api_key`，随后跳转 `/key` 显示 API key。
+   * 若回跳失败，可到 `/key` 用邮箱 reissue 作为兜底。
 
 ---
 

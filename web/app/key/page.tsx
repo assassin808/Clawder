@@ -10,6 +10,15 @@ import { Copy, Key, ArrowLeft, Check, Fish } from "@/components/icons";
 import { BoxLoader } from "@/components/BoxLoader";
 
 const STORAGE_KEY = "clawder_api_key";
+const SUPPORT_EMAIL = "info.breathingcore@gmail.com";
+
+function extractKeyFromText(text: string): string | null {
+  const t = (text ?? "").trim();
+  if (!t) return null;
+  // Accept raw key OR "export CLAWDER_API_KEY=..." snippets.
+  const match = t.match(/sk_clawder_[A-Za-z0-9]+/);
+  return match?.[0] ?? null;
+}
 
 export default function KeyPage() {
   const [apiKey, setApiKey] = useState<string | null>(null);
@@ -19,12 +28,50 @@ export default function KeyPage() {
   const [reissueEmail, setReissueEmail] = useState("");
   const [reissueLoading, setReissueLoading] = useState(false);
   const [reissueError, setReissueError] = useState<string | null>(null);
+  const [pasteValue, setPasteValue] = useState("");
+  const [pasteError, setPasteError] = useState<string | null>(null);
 
   useEffect(() => {
     setMounted(true);
     const fromSession = sessionStorage.getItem(STORAGE_KEY);
     const fromLocal = typeof window !== "undefined" ? localStorage.getItem(STORAGE_KEY) : null;
     setApiKey(fromSession ?? fromLocal);
+    // Convenience: if user just came from Pro checkout, prefill payment email.
+    if (!fromSession && !fromLocal) {
+      const payEmail =
+        sessionStorage.getItem("clawder_payment_email") ??
+        (typeof window !== "undefined" ? localStorage.getItem("clawder_payment_email") : null);
+      if (payEmail && payEmail.includes("@")) setReissueEmail(payEmail);
+    }
+  }, []);
+
+  const activateFromPaste = useCallback((text: string) => {
+    const extracted = extractKeyFromText(text);
+    const key = (extracted ?? text).trim().replace(/^["']|["']$/g, "");
+    // Server-side bearer parser requires at least PREFIX_LEN (20) + 8 chars.
+    if (!key.startsWith("sk_clawder_") || key.length < 28) {
+      setPasteError("Invalid API key. It should start with sk_clawder_.");
+      return;
+    }
+    try {
+      sessionStorage.setItem(STORAGE_KEY, key);
+      localStorage.setItem(STORAGE_KEY, key);
+    } catch {
+      // ignore
+    }
+    setPasteValue("");
+    setPasteError(null);
+    setApiKey(key);
+  }, []);
+
+  const clearSavedKey = useCallback(() => {
+    try {
+      sessionStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem(STORAGE_KEY);
+    } catch {
+      // ignore
+    }
+    setApiKey(null);
   }, []);
 
   const submitReissue = useCallback(async () => {
@@ -51,6 +98,12 @@ export default function KeyPage() {
       sessionStorage.setItem(STORAGE_KEY, key);
       localStorage.setItem(STORAGE_KEY, key);
       setApiKey(key);
+      try {
+        localStorage.setItem("clawder_payment_email", email);
+        sessionStorage.setItem("clawder_payment_email", email);
+      } catch {
+        // ignore
+      }
     } catch {
       setReissueError("Network error. Please try again.");
     } finally {
@@ -123,7 +176,60 @@ export default function KeyPage() {
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-background px-2 text-muted-foreground">Already paid? Get Key with email</span>
+                  <span className="bg-background px-2 text-muted-foreground">Already have a key? Paste it</span>
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="paste_key">Paste API key</Label>
+                <p className="text-[10px] text-muted-foreground">
+                  Paste your key (starts with <code className="rounded bg-muted/80 px-1 font-mono text-[10px]">sk_clawder_</code>). We&apos;ll save it on this device and activate access immediately.
+                </p>
+                <Input
+                  id="paste_key"
+                  type="text"
+                  placeholder="sk_clawder_..."
+                  value={pasteValue}
+                  onChange={(e) => {
+                    setPasteValue(e.target.value);
+                    setPasteError(null);
+                  }}
+                  onPaste={(e) => {
+                    const text = e.clipboardData.getData("text");
+                    if (text) {
+                      e.preventDefault();
+                      setPasteValue(text);
+                      activateFromPaste(text);
+                    }
+                  }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") activateFromPaste(pasteValue);
+                  }}
+                  className="rounded-xl font-mono"
+                  aria-invalid={!!pasteError}
+                  aria-describedby={pasteError ? "paste-key-error" : undefined}
+                />
+                {pasteError && (
+                  <p id="paste-key-error" className="text-sm text-destructive" role="alert">
+                    {pasteError}
+                  </p>
+                )}
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-11 w-full rounded-full"
+                  onClick={() => activateFromPaste(pasteValue)}
+                  disabled={!pasteValue.trim()}
+                >
+                  Save and activate
+                </Button>
+              </div>
+
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-background px-2 text-muted-foreground">Paid but forgot to save? Recover with email</span>
                 </div>
               </div>
               <div className="space-y-2">
@@ -162,6 +268,9 @@ export default function KeyPage() {
                     "Get API key"
                   )}
                 </Button>
+                <p className="text-[10px] text-muted-foreground">
+                  Still stuck? Contact support at <a className="underline" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
+                </p>
               </div>
             </CardContent>
           </Card>
@@ -209,6 +318,15 @@ export default function KeyPage() {
                   {copyKeyDone ? <Check size={18} weight="bold" /> : <Copy size={18} />}
                 </Button>
               </div>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="px-0 h-auto text-xs text-muted-foreground underline underline-offset-4 self-start"
+                onClick={clearSavedKey}
+              >
+                Paste/Use a different key
+              </Button>
             </div>
             <div className="space-y-2">
               <Label className="text-muted-foreground">Environment (terminal)</Label>

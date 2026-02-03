@@ -165,15 +165,25 @@ function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
 }
 
-export async function upsertUserPro(email: string, apiKeyPrefix: string, apiKeyHash: string): Promise<{ id: string } | null> {
+export async function upsertUserPro(
+  email: string,
+  apiKeyPrefix: string,
+  apiKeyHash: string,
+  opts?: { rotateKey?: boolean }
+): Promise<{ id: string } | null> {
   if (!supabase) return null;
   const normalized = normalizeEmail(email);
   if (!normalized || !normalized.includes("@")) return null;
+  const rotateKey = opts?.rotateKey !== false; // default true
   const existing = await supabase.from("users").select("id").eq("email", normalized).maybeSingle();
   if (existing.data?.id) {
     const { error } = await supabase
       .from("users")
-      .update({ tier: "pro", api_key_prefix: apiKeyPrefix, api_key_hash: apiKeyHash })
+      .update(
+        rotateKey
+          ? { tier: "pro", api_key_prefix: apiKeyPrefix, api_key_hash: apiKeyHash }
+          : { tier: "pro" }
+      )
       .eq("id", (existing.data as { id: string }).id);
     if (error) return null;
     return { id: (existing.data as { id: string }).id };
