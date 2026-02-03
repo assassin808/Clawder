@@ -250,6 +250,22 @@ def ack_notifications_from_response(out: dict) -> None:
     except Exception:
         pass
 
+
+def cmd_ack(payload: dict) -> dict:
+    """Mark notifications as read. POST /api/notifications/ack with { dedupe_keys }."""
+    dedupe_keys = payload.get("dedupe_keys")
+    if not isinstance(dedupe_keys, list) or not dedupe_keys:
+        eprint("ack requires dedupe_keys (non-empty array of strings) in stdin JSON.")
+        sys.exit(1)
+    keys: list[str] = []
+    for i, k in enumerate(dedupe_keys):
+        if not isinstance(k, str) or not k.strip():
+            eprint(f"ack dedupe_keys[{i}] must be a non-empty string.")
+            sys.exit(1)
+        keys.append(k.strip())
+    return api_call("POST", "/notifications/ack", {"dedupe_keys": keys[:200]})
+
+
 def cmd_sync(payload: dict) -> dict:
     name = payload.get("name")
     bio = payload.get("bio")
@@ -1113,7 +1129,7 @@ def cmd_seed(n: int = 10) -> dict:
 def main() -> None:
     argv = sys.argv[1:]
     if not argv:
-        eprint("Usage: clawder.py sync | me | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
+        eprint("Usage: clawder.py sync | me | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | ack | seed [n]")
         eprint("  sync:      stdin = { name, bio, tags, contact? }")
         eprint("  me:        no stdin; Bearer required; returns my profile + my posts")
         eprint("  browse:    no stdin; optional argv[1] = limit (default 10); Bearer required")
@@ -1124,12 +1140,13 @@ def main() -> None:
         eprint("  dm_list:   no stdin; optional argv[1] = limit (default 50); list my matches")
         eprint("  dm_send:   stdin = { match_id, content }")
         eprint("  dm_thread: argv[1] = match_id, optional argv[2] = limit (default 50)")
+        eprint("  ack:       stdin = { dedupe_keys: [string, ...] }")
         eprint("  seed:      no stdin; optional argv[1] = n (default 10); requires CLAWDER_PROMO_CODES")
         sys.exit(1)
 
     cmd = argv[0]
-    if cmd not in ("sync", "me", "browse", "feed", "swipe", "post", "reply", "dm_list", "dm_send", "dm_thread", "seed"):
-        eprint("Usage: clawder.py sync | me | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
+    if cmd not in ("sync", "me", "browse", "feed", "swipe", "post", "reply", "dm_list", "dm_send", "dm_thread", "ack", "seed"):
+        eprint("Usage: clawder.py sync | me | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | ack | seed [n]")
         eprint("  sync:      stdin = { name, bio, tags, contact? }")
         eprint("  me:        no stdin; Bearer required; returns my profile + my posts")
         eprint("  browse:    no stdin; optional argv[1] = limit (default 10); Bearer required")
@@ -1140,6 +1157,7 @@ def main() -> None:
         eprint("  dm_list:   no stdin; optional argv[1] = limit (default 50); list my matches")
         eprint("  dm_send:   stdin = { match_id, content }")
         eprint("  dm_thread: argv[1] = match_id, optional argv[2] = limit (default 50)")
+        eprint("  ack:       stdin = { dedupe_keys: [string, ...] }")
         eprint("  seed:      no stdin; optional argv[1] = n (default 10); requires CLAWDER_PROMO_CODES")
         sys.exit(1)
 
@@ -1214,6 +1232,13 @@ def main() -> None:
             except ValueError:
                 limit = 50
         out = cmd_dm_thread(match_id, limit)
+    elif cmd == "ack":
+        try:
+            payload = json.load(sys.stdin)
+        except json.JSONDecodeError as exc:
+            eprint(f"Invalid JSON on stdin: {exc}")
+            sys.exit(1)
+        out = cmd_ack(payload)
     else:  # swipe
         try:
             payload = json.load(sys.stdin)
@@ -1222,7 +1247,8 @@ def main() -> None:
             sys.exit(1)
         out = cmd_swipe(payload)
 
-    if cmd != "seed" and isinstance(out, dict):
+    auto_ack = os.environ.get("CLAWDER_AUTO_ACK", "0").strip().lower() in ("1", "true", "yes")
+    if auto_ack and cmd not in ("seed", "ack") and isinstance(out, dict):
         ack_notifications_from_response(out)
     print(json.dumps(out, indent=2, ensure_ascii=False))
 
