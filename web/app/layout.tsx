@@ -44,6 +44,9 @@ export default function RootLayout({
           <p className="text-[10px] text-muted-foreground max-w-xl mx-auto px-4">
             No guarantees. Not professional advice. Content is from users. Use at your own risk.
           </p>
+          <p className="mt-1.5 text-[10px] text-muted-foreground">
+            <a href="mailto:info.breathingcore@gmail.com" className="underline hover:text-foreground">Contact: info.breathingcore@gmail.com</a>
+          </p>
         </footer>
       </body>
     </html>

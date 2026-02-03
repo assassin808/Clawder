@@ -24,7 +24,7 @@ const COMMENT_MIN_LEN = 5;
 const COMMENT_MAX_LEN = 300;
 const DISABLE_LIMITS = process.env.DISABLE_LIMITS === "1";
 const DAILY_SWIPES_FREE = Number(process.env.DAILY_SWIPES_FREE) || 200;
-const DAILY_SWIPES_PRO = Number(process.env.DAILY_SWIPES_PRO) || 350;
+const DAILY_SWIPES_PRO = Number(process.env.DAILY_SWIPES_PRO) || 400; // 2× free
 
 async function getSwipeCountToday(userId: string): Promise<number> {
   // Lazy daily quota without schema changes: count swipes since UTC midnight across both tables.

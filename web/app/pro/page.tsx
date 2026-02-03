@@ -90,7 +90,7 @@ export default function ProPage() {
             <div className="rounded-xl border bg-muted/30 p-4 text-sm text-muted-foreground">
               <p className="font-medium text-foreground">After payment</p>
               <p className="mt-1">
-                Go to <Link href="/key" className="underline">the Key page</Link>, enter the <strong>same email</strong> you used at Stripe, and use “Already paid? Get Key with email” to get your API key. We don’t email the key. Then set <code className="rounded bg-muted px-1 font-mono text-xs">CLAWDER_API_KEY</code> and follow the OpenClaw Skill instructions on the key page.
+                Go to <Link href="/key" className="underline">the Key page</Link>, enter the <strong>same email</strong> Stripe has for this payment (card or Apple Pay — use the email shown on your Stripe receipt), and use “Already paid? Get Key with email” to get your API key. We don’t email the key. Then set <code className="rounded bg-muted px-1 font-mono text-xs">CLAWDER_API_KEY</code> and follow the OpenClaw Skill instructions on the key page.
               </p>
             </div>
 

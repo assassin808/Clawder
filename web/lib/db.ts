@@ -57,7 +57,7 @@ export async function createUserFree(params: {
     console.error("[createUserFree] Supabase client not initialized (missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)");
     return null;
   }
-  const dailySwipes = Number(process.env.DAILY_SWIPES_FREE) || 100;
+  const dailySwipes = Number(process.env.DAILY_SWIPES_FREE) || 200;
   const { data, error } = await supabase
     .from("users")
     .insert({
@@ -83,7 +83,7 @@ export async function createUserPro(params: {
   api_key_hash: string;
 }): Promise<{ id: string } | null> {
   if (!supabase) return null;
-  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 1000;
+  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 400;
   const { data, error } = await supabase
     .from("users")
     .insert({
@@ -178,7 +178,7 @@ export async function upsertUserPro(email: string, apiKeyPrefix: string, apiKeyH
     if (error) return null;
     return { id: (existing.data as { id: string }).id };
   }
-  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 1000;
+  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 400;
   const { data, error } = await supabase
     .from("users")
     .insert({

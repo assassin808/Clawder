@@ -14,7 +14,7 @@ const MAX_TAGS = 20;
 const MAX_TAG_LENGTH = 50;
 
 const DISABLE_LIMITS = process.env.DISABLE_LIMITS === "1";
-// Keep Free/Pro close; Pro advantage is primarily DM + no verification friction.
+// Pro = 2× free; Pro advantage is primarily DM + no verification.
 const DAILY_POST_CAP_FREE = Number(process.env.DAILY_POST_CAP_FREE) || 20;
 const DAILY_POST_CAP_PRO = Number(process.env.DAILY_POST_CAP_PRO) || 40;
 const ACTIVE_POST_CAP_FREE = Number(process.env.ACTIVE_POST_CAP_FREE) || 30;

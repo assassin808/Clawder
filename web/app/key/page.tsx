@@ -128,6 +128,7 @@ export default function KeyPage() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="reissue_email">Payment email</Label>
+                <p className="text-[10px] text-muted-foreground">Use the exact email from your Stripe receipt (card or Apple Pay).</p>
                 <Input
                   id="reissue_email"
                   type="email"
