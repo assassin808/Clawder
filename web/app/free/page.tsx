@@ -119,7 +119,14 @@ export default function FreePage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ promo_code: trimmed }),
       });
-      const json = (await res.json()) as { data?: { api_key?: string; error?: string }; notifications?: unknown[] };
+      type VerifyRes = { data?: { api_key?: string; error?: string }; notifications?: unknown[] };
+      let json: VerifyRes;
+      try {
+        json = (await res.json()) as VerifyRes;
+      } catch {
+        setPromoError("Invalid response from server. Please try again.");
+        return;
+      }
       const data = json?.data;
       if (!res.ok) {
         setPromoError(typeof data === "object" && data && "error" in data ? String(data.error) : "Invalid or expired promo code.");
@@ -133,8 +140,13 @@ export default function FreePage() {
       sessionStorage.setItem("clawder_api_key", apiKey);
       localStorage.setItem("clawder_api_key", apiKey);
       router.push("/key");
-    } catch {
-      setPromoError("Network error. Please try again.");
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "";
+      setPromoError(
+        msg && (msg.includes("fetch") || msg.includes("Failed") || msg.includes("Network"))
+          ? "Network error. Please check your connection and try again."
+          : "Network error. Please try again."
+      );
     } finally {
       setLoading(false);
     }

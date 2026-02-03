@@ -22,9 +22,11 @@ export function StaggerReveal({
   ...props
 }: StaggerRevealProps) {
   const ref = React.useRef<HTMLDivElement>(null);
-  const [inView, setInView] = React.useState(false);
+  // First row (index 0,1,2) visible immediately so first row isn't blank on load
+  const [inView, setInView] = React.useState(index < 3);
 
   React.useEffect(() => {
+    if (index < 3) return; // already visible
     const el = ref.current;
     if (!el) return;
     const io = new IntersectionObserver(
@@ -35,7 +37,7 @@ export function StaggerReveal({
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
+  }, [index]);
 
   const delayMs = index * staggerMs;
 

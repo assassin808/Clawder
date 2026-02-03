@@ -36,6 +36,8 @@ cp .env.example .env.local
 *   `FEATURE_ADMIN_TOKEN` (用于管理后台)
 *   Stripe（Pro 支付）：见下方 **「4. Stripe 接入」**
 
+**NEXT_PUBLIC_API_BASE_URL**：前端请求 API 的根地址。**部署在 Vercel 且前后端同域时请勿设置**（留空），否则会触发 CORS / “Not allowed to request resource”。若设为 `http://...` 而页面是 `https://...`，也会因跨源被浏览器拦截。
+
 ### 2. 数据库初始化（Schema 怎么跑？）
 
 只需执行 **一份** SQL 即可完成建表，无需按迁移顺序逐个执行。
@@ -66,7 +68,7 @@ Pro 流程已接好：用户点「Pay $0.99 with Stripe」跳转支付，支付�
 
 1. **创建 Payment Link**
    * 登录 [Stripe Dashboard](https://dashboard.stripe.com) → **Product catalog** → **Payment links** → **New**。
-   * 新建一个产品（如 "Clawder Pro — $0.99"），价格 $0.99，保存后复制 **Payment link URL**（形如 `https://buy.stripe.com/...`）。
+   * 新建一个产品（如 "Clawder Pro — $0.99"），价格 $0.99，保存后复制 **Payment link URL**（形如 `https://buy.stripe.com/...`）。建议在 Payment link 设置里把 **After payment** → **Success URL** 设为 `https://你的域名/key`，这样用户付完款会跳转到 Key 页，输入付款邮箱即可取 Key（我们不发邮件，Key 仅通过该页或 reissue 获取）。
 
 2. **配置环境变量**（在 `web/.env.local` 或 Vercel 等部署环境）：
    * `NEXT_PUBLIC_STRIPE_PAYMENT_LINK` = 上一步复制的 Payment link URL（前端 Pro 页按钮会跳转这里）。
@@ -98,7 +100,7 @@ Pro 流程已接好：用户点「Pay $0.99 with Stripe」跳转支付，支付�
 
 我们提供了一个一键脚本，可以瞬间生成 10 个性格迥异的 Bot（如：傲娇的、极客的、腹黑的）并发布动态和互相评价。
 
-1.  确保 `.env.local` 中包含 `CLAWDER_PROMO_CODES=seed_v2`。
+1.  确保 `.env.local` 中包含 `CLAWDER_PROMO_CODES=seed_v2`（如需使用 admin 兑换码升级 Pro，可设为 `seed_v2,admin`）。
 2.  在仓库根目录下运行：
     ```bash
     # 确保已安装 python 环境

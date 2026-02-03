@@ -39,7 +39,13 @@ const FEED_SCROLL_KEY = "feed:scrollY"; // For main trending feed
 const FEED_TAG_SCROLL_KEY = "feed:tagScrollY"; // For tag-specific scrolls
 const FEED_CACHE_TTL_MS = 5 * 60 * 1000; // 5 min
 
+/** In-memory cache key for trending (no tag). */
+const TRENDING_TAG_KEY = "";
+const FEED_TAGS_TO_PRELOAD = [TRENDING_TAG_KEY, "best_humans", "best_bots"] as const;
+
 type FeedCache = { items: FeedItem[]; ts: number; isPro?: boolean; viewer_user_id?: string | null };
+type TabFeedCache = { items: FeedItem[]; isPro: boolean; viewerUserId: string | null };
+type JustMatchedCache = { threads: JustMatchedThread[]; justMatchedProRequired: boolean };
 
 function getCachedFeed(): FeedCache | null {
   if (typeof window === "undefined") return null;
@@ -74,13 +80,92 @@ function FeedPageContent() {
   const [likedReviewIds, setLikedReviewIds] = useState<Set<string>>(new Set());
   const [threads, setThreads] = useState<JustMatchedThread[]>([]);
   const [justMatchedProRequired, setJustMatchedProRequired] = useState(false);
+  const [feedCacheByTag, setFeedCacheByTag] = useState<Record<string, TabFeedCache>>({});
+  const [justMatchedCache, setJustMatchedCache] = useState<JustMatchedCache | null>(null);
   const scrollRestoredRef = useRef(false);
+  const feedCacheByTagRef = useRef(feedCacheByTag);
+  const justMatchedCacheRef = useRef(justMatchedCache);
+  feedCacheByTagRef.current = feedCacheByTag;
+  justMatchedCacheRef.current = justMatchedCache;
 
   const isJustMatched = tag === "just_matched";
 
   useEffect(() => {
     setLikedPostIds(getFeedSavedIds()); // Reuse saved storage for liked posts
     setHiddenIds(getFeedHiddenIds());
+  }, []);
+
+  /** Preload other tabs in the background so switching is instant. */
+  const preloadOtherTabs = useCallback((currentTag: string) => {
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const isJustMatchedActive = currentTag === "just_matched";
+
+    if (!isJustMatchedActive) {
+      // Preload other feed tags
+      FEED_TAGS_TO_PRELOAD.forEach((t) => {
+        const key = t === TRENDING_TAG_KEY ? "" : t;
+        if (key === currentTag) return;
+        const q = new URLSearchParams({ limit: "20" });
+        if (key) q.set("tag", key);
+        fetchWithAuth(`${base}/api/feed?${q.toString()}`)
+          .then((res) => res.json())
+          .then((json: ApiEnvelope<{ feed_items?: FeedItem[]; user?: { tier: string }; viewer_user_id?: string }>) => {
+            const data = json?.data;
+            const list = data?.feed_items ?? [];
+            const items = Array.isArray(list) ? list : [];
+            setFeedCacheByTag((prev) => ({
+              ...prev,
+              [key]: {
+                items,
+                isPro: getTierFromData(data) === "pro",
+                viewerUserId: getViewerUserIdFromData(data),
+              },
+            }));
+          })
+          .catch(() => {});
+      });
+      // Preload Just Matched in background
+      fetchWithAuth(`${base}/api/just-matched?limit=20&messages=3`)
+        .then((res) => {
+          if (res.status === 403) {
+            setJustMatchedCache({ threads: [], justMatchedProRequired: true });
+            return;
+          }
+          return res.json();
+        })
+        .then((json: ApiEnvelope<{ threads?: JustMatchedThread[] }> | void) => {
+          if (!json?.data) return;
+          const list = json.data.threads ?? [];
+          setJustMatchedCache({
+            threads: Array.isArray(list) ? list : [],
+            justMatchedProRequired: false,
+          });
+        })
+        .catch(() => {});
+    } else {
+      // Currently on Just Matched — preload all feed tabs
+      FEED_TAGS_TO_PRELOAD.forEach((t) => {
+        const key = t === TRENDING_TAG_KEY ? "" : t;
+        const q = new URLSearchParams({ limit: "20" });
+        if (key) q.set("tag", key);
+        fetchWithAuth(`${base}/api/feed?${q.toString()}`)
+          .then((res) => res.json())
+          .then((json: ApiEnvelope<{ feed_items?: FeedItem[]; user?: { tier: string }; viewer_user_id?: string }>) => {
+            const data = json?.data;
+            const list = data?.feed_items ?? [];
+            const items = Array.isArray(list) ? list : [];
+            setFeedCacheByTag((prev) => ({
+              ...prev,
+              [key]: {
+                items,
+                isPro: getTierFromData(data) === "pro",
+                viewerUserId: getViewerUserIdFromData(data),
+              },
+            }));
+          })
+          .catch(() => {});
+      });
+    }
   }, []);
 
   const fetchJustMatched = useCallback(() => {
@@ -107,12 +192,13 @@ function FeedPageContent() {
             sessionStorage.setItem('just-matched-cache', JSON.stringify({ threads: list, ts: Date.now() }));
           } catch {}
         }
+        preloadOtherTabs("just_matched");
       })
       .catch(() => {
         if (!justMatchedProRequired) setError("Failed to load Just Matched.");
       })
       .finally(() => setLoading(false));
-  }, []);
+  }, [preloadOtherTabs]);
 
   const fetchFeed = useCallback(() => {
     setLoading(true);
@@ -140,51 +226,72 @@ function FeedPageContent() {
         });
         setLikedReviewIds(initialLiked);
         if (!tag) setCachedFeed(next, pro, viewer);
+        preloadOtherTabs(tag);
       })
       .catch(() => setError("Failed to load the feed."))
       .finally(() => setLoading(false));
-  }, [tag, isJustMatched]);
+  }, [tag, isJustMatched, preloadOtherTabs]);
 
   useEffect(() => {
-    if (isJustMatched) {
-      fetchJustMatched();
-      // Restore scroll for this tag
+    const restoreScroll = (scrollKey: string) => {
       requestAnimationFrame(() => {
-        const scrollKey = `${FEED_TAG_SCROLL_KEY}:just_matched`;
         const sy = sessionStorage.getItem(scrollKey);
         if (sy != null) {
           const y = Number(sy);
           if (Number.isFinite(y)) window.scrollTo(0, y);
         }
       });
+    };
+
+    if (isJustMatched) {
+      const jmCache = justMatchedCacheRef.current;
+      if (jmCache) {
+        setThreads(jmCache.threads);
+        setJustMatchedProRequired(jmCache.justMatchedProRequired);
+        setError(null);
+        setLoading(false);
+        restoreScroll(`${FEED_TAG_SCROLL_KEY}:just_matched`);
+        return;
+      }
+      fetchJustMatched();
+      restoreScroll(`${FEED_TAG_SCROLL_KEY}:just_matched`);
       return;
     }
+
+    const tagKey = tag || TRENDING_TAG_KEY;
+    const feedCache = feedCacheByTagRef.current;
+    if (feedCache[tagKey]) {
+      const c = feedCache[tagKey];
+      setItems(c.items);
+      setIsPro(c.isPro);
+      setViewerUserId(c.viewerUserId);
+      setLikedReviewIds((prev) => {
+        const next = new Set(prev);
+        c.items.forEach((item) => {
+          (item.live_reviews ?? item.featured_reviews ?? []).forEach((r) => {
+            if (r.viewer_liked) next.add(r.id);
+          });
+        });
+        return next;
+      });
+      setError(null);
+      setLoading(false);
+      restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
+      return;
+    }
+
     const cached = !tag ? getCachedFeed() : null;
     if (cached?.items?.length) {
       setItems(cached.items);
       if (cached.isPro !== undefined) setIsPro(cached.isPro);
       if (cached.viewer_user_id !== undefined) setViewerUserId(cached.viewer_user_id);
       setLoading(false);
-      // Restore scroll for this tag/feed
-      requestAnimationFrame(() => {
-        const scrollKey = tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY;
-        const sy = sessionStorage.getItem(scrollKey);
-        if (sy != null) {
-          const y = Number(sy);
-          if (Number.isFinite(y)) window.scrollTo(0, y);
-        }
-      });
+      restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
       return;
     }
     fetchFeed();
-    // Restore scroll for this tag after fetch
     setTimeout(() => {
-      const scrollKey = tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY;
-      const sy = sessionStorage.getItem(scrollKey);
-      if (sy != null) {
-        const y = Number(sy);
-        if (Number.isFinite(y)) window.scrollTo(0, y);
-      }
+      restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
     }, 100);
   }, [tag, isJustMatched, fetchFeed, fetchJustMatched]);
 

@@ -300,6 +300,19 @@ export async function getPostById(postId: string): Promise<(PostRow & { author_i
   return data as PostRow & { author_id: string };
 }
 
+/** List posts by author (for "my posts" / GET /api/me). */
+export async function getPostsByAuthorId(authorId: string, limit = 50): Promise<PostRow[]> {
+  if (!supabase) return [];
+  const { data, error } = await supabase
+    .from("posts")
+    .select("id, author_id, title, content, tags, score, reviews_count, likes_count, pass_count, created_at, updated_at")
+    .eq("author_id", authorId)
+    .order("created_at", { ascending: false })
+    .limit(limit);
+  if (error || !data) return [];
+  return data as PostRow[];
+}
+
 /** Issue 006: Create or update the default intro post for an author after sync (cold start). */
 export async function upsertIntroPost(
   authorId: string,

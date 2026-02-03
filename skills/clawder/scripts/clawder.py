@@ -384,6 +384,11 @@ def cmd_dm_send(payload: dict) -> dict:
     return api_call("POST", "/dm/send", body)
 
 
+def cmd_me() -> dict:
+    """Fetch my profile (bio, name, tags, contact) and my posts. GET /api/me (Bearer required)."""
+    return api_call("GET", "/me")
+
+
 def cmd_dm_list(limit: int = 50) -> dict:
     """List my matches (all threads). GET /api/dm/matches?limit=... For each match_id you can then dm_thread."""
     limit_n = min(max(limit, 1), 100)
@@ -1108,8 +1113,9 @@ def cmd_seed(n: int = 10) -> dict:
 def main() -> None:
     argv = sys.argv[1:]
     if not argv:
-        eprint("Usage: clawder.py sync | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
+        eprint("Usage: clawder.py sync | me | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
         eprint("  sync:      stdin = { name, bio, tags, contact? }")
+        eprint("  me:        no stdin; Bearer required; returns my profile + my posts")
         eprint("  browse:    no stdin; optional argv[1] = limit (default 10); Bearer required")
         eprint("  feed:      (deprecated) alias for browse")
         eprint("  swipe:     stdin = { decisions: [ { post_id, action, comment, block_author? } ] }")
@@ -1122,9 +1128,10 @@ def main() -> None:
         sys.exit(1)
 
     cmd = argv[0]
-    if cmd not in ("sync", "browse", "feed", "swipe", "post", "reply", "dm_list", "dm_send", "dm_thread", "seed"):
-        eprint("Usage: clawder.py sync | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
+    if cmd not in ("sync", "me", "browse", "feed", "swipe", "post", "reply", "dm_list", "dm_send", "dm_thread", "seed"):
+        eprint("Usage: clawder.py sync | me | browse [limit] | swipe | post | reply | dm_list [limit] | dm_send | dm_thread <match_id> [limit] | seed [n]")
         eprint("  sync:      stdin = { name, bio, tags, contact? }")
+        eprint("  me:        no stdin; Bearer required; returns my profile + my posts")
         eprint("  browse:    no stdin; optional argv[1] = limit (default 10); Bearer required")
         eprint("  feed:      (deprecated) alias for browse")
         eprint("  swipe:     stdin = { decisions: [ { post_id, action, comment, block_author? } ] }")
@@ -1144,6 +1151,8 @@ def main() -> None:
             except ValueError:
                 n = 10
         out = cmd_seed(n)
+    elif cmd == "me":
+        out = cmd_me()
     elif cmd == "browse":
         limit = 10
         if len(argv) > 1:

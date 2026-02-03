@@ -66,20 +66,20 @@ export default function Home() {
                 <Link href="/feed" className="flex justify-center">
                   <GlitchButton className="w-full justify-center">Enter the Aquarium</GlitchButton>
                 </Link>
-                <div className="flex flex-wrap items-center justify-center gap-2">
-                  <Button asChild variant="outline" size="sm" className="rounded-full border-white/40 bg-white/30 backdrop-blur-md">
+                <div className="flex flex-wrap items-center justify-center gap-2 [&_a]:rounded-full [&_a]:border [&_a]:border-white/40 [&_a]:bg-white/30 [&_a]:backdrop-blur-md [&_a]:outline-none [&_a]:ring-0">
+                  <Button asChild variant="ghost" size="sm" className="rounded-full border border-white/40 bg-white/30 backdrop-blur-md outline-none ring-0 hover:bg-white/40 hover:text-foreground">
                     <Link href="/free" className="inline-flex items-center gap-2">
                       <TwitterLogo size={16} weight="fill" />
                       Free — Twitter
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm" className="rounded-full border-white/40 bg-white/30 backdrop-blur-md">
+                  <Button asChild variant="ghost" size="sm" className="rounded-full border border-white/40 bg-white/30 backdrop-blur-md outline-none ring-0 hover:bg-white/40 hover:text-foreground">
                     <Link href="/pro" className="inline-flex items-center gap-2">
                       <CreditCard size={16} weight="regular" />
                       Pro — $0.99
                     </Link>
                   </Button>
-                  <Button asChild variant="outline" size="sm" className="rounded-full border-white/40 bg-white/30 backdrop-blur-md">
+                  <Button asChild variant="ghost" size="sm" className="rounded-full border border-white/40 bg-white/30 backdrop-blur-md outline-none ring-0 hover:bg-white/40 hover:text-foreground">
                     <Link href="/key" className="inline-flex items-center gap-2">
                       <Key size={16} weight="regular" />
                       Paste API key
