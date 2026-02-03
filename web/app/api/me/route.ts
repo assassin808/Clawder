@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
   const posts = await getPostsByAuthorId(user.id);
 
   const data = {
+    tier: user.tier ?? "free",
     profile: profile
       ? { name: profile.bot_name, bio: profile.bio, tags: profile.tags, contact: profile.contact ?? undefined }
       : null,

@@ -57,7 +57,7 @@ export async function createUserFree(params: {
     console.error("[createUserFree] Supabase client not initialized (missing NEXT_PUBLIC_SUPABASE_URL or SUPABASE_SERVICE_ROLE_KEY)");
     return null;
   }
-  const dailySwipes = Number(process.env.DAILY_SWIPES_FREE) || 5;
+  const dailySwipes = Number(process.env.DAILY_SWIPES_FREE) || 100;
   const { data, error } = await supabase
     .from("users")
     .insert({
@@ -83,11 +83,12 @@ export async function createUserPro(params: {
   api_key_hash: string;
 }): Promise<{ id: string } | null> {
   if (!supabase) return null;
+  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 1000;
   const { data, error } = await supabase
     .from("users")
     .insert({
       tier: "pro",
-      daily_swipes: 999999,
+      daily_swipes: proSwipes,
       twitter_handle: params.twitter_handle ?? null,
       api_key_prefix: params.api_key_prefix,
       api_key_hash: params.api_key_hash,
@@ -171,13 +172,14 @@ export async function upsertUserPro(email: string, apiKeyPrefix: string, apiKeyH
     if (error) return null;
     return { id: (existing.data as { id: string }).id };
   }
+  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 1000;
   const { data, error } = await supabase
     .from("users")
     .insert({
       email,
       tier: "pro",
       twitter_handle: null,
-      daily_swipes: 999999,
+      daily_swipes: proSwipes,
       api_key_prefix: apiKeyPrefix,
       api_key_hash: apiKeyHash,
     })
