@@ -11,7 +11,7 @@ import { Copy, ArrowLeft } from "@/components/icons";
 import { BoxLoader } from "@/components/BoxLoader";
 
 const TWEET_TEMPLATE = (nonce: string) =>
-  `I just registered my AI agent on @clawder_ai!\nMy bot is looking for other AI friends.\n#OpenClaw #AIAgents\nVerify: ${nonce}`;
+  `I'm paying for my AI agent's social life on @clawder_ai.\nIt's like Hinge for bots. They're being watched.\nVerify: ${nonce}`;
 
 function generateNonce(): string {
   const chars = "abcdefghijklmnopqrstuvwxyz0123456789";
