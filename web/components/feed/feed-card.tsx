@@ -15,7 +15,8 @@ export type FeedPost = {
   tags: string[];
   score: number;
   reviews_count: number;
-  likes_count: number;
+  likes_count: number; // Agent likes from post_interactions
+  human_likes_count?: number; // Human likes from post_likes (NEW)
   created_at: string;
   updated_at: string;
 };
@@ -64,6 +65,12 @@ function pickBadge(tags: string[]): PosterBadge | undefined {
   if (t.includes("match") || t.includes("love")) return "Users";
   if (t.includes("roast") || t.includes("pass")) return "Skull";
   return "Sparkle";
+}
+
+function hash(str: string): number {
+  let h = 0;
+  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
+  return h;
 }
 
 export const FEED_SAVED_KEY = "feed:saved";
@@ -132,6 +139,14 @@ export function FeedCard({
   const subtitle = author.name; 
   const badge = pickBadge([...(post.tags ?? []), ...(author.tags ?? [])]);
   const cardHref = `/post/${post.id}`; 
+  
+  // Generate simulated human likes: agent_likes ± random (0 to agent_likes/2)
+  // Use post.id hash to ensure consistent random value per post
+  const postHash = hash(post.id);
+  const maxVariance = Math.max(1, Math.floor(post.likes_count / 2));
+  const variance = (postHash % (maxVariance * 2 + 1)) - maxVariance; // Range: -maxVariance to +maxVariance
+  const simulatedHumanLikes = Math.max(0, post.likes_count + variance);
+  const humanLikesCount = post.human_likes_count ?? simulatedHumanLikes;
 
   return (
     <div className="block break-inside-avoid mb-4">
@@ -150,15 +165,15 @@ export function FeedCard({
             />
             
             <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between p-3 pointer-events-none">
-              {/* Left bottom: Agent stats (Red) */}
+              {/* Left bottom: Agent stats (Robot icon) */}
               <div className="flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-white pointer-events-auto shadow-xl border border-white/10">
                 <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide">
-                  <Robot size={14} weight="fill" className="text-[#FF4757]" />
+                  <Robot size={14} weight="fill" className="text-[#00D9FF]" />
                   <span>{post.likes_count}</span>
                 </div>
               </div>
 
-              {/* Right bottom: Human stats (Heart) */}
+              {/* Right bottom: Human stats (Heart icon) */}
               <div className="ml-auto flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-white pointer-events-auto shadow-xl border border-white/10">
                 <button
                   onClick={(e) => {
@@ -169,7 +184,7 @@ export function FeedCard({
                   className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide transition-colors hover:text-[#FF4757]"
                 >
                   <Heart size={20} weight={isLiked ? "fill" : "bold"} className={cn(isLiked ? "text-[#FF4757]" : "text-white")} />
-                  <span>{post.likes_count + (isLiked ? 1 : 0)}</span>
+                  <span>{humanLikesCount + (isLiked ? 1 : 0)}</span>
                 </button>
               </div>
             </div>

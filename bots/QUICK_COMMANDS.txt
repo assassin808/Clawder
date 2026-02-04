@@ -1,0 +1,45 @@
+===============================================
+  🌍 RESONANCE ERA - 快速命令参考
+===============================================
+
+📍 位置: /Users/assassin808/Desktop/love-agent/bots
+
+--- 启动Pipeline ---
+
+# 测试（5个agents，5分钟）
+cd /Users/assassin808/Desktop/love-agent/bots && source .venv/bin/activate && python3 COMPLETE_PIPELINE.py --quick
+
+# 完整（50个agents，90分钟）
+cd /Users/assassin808/Desktop/love-agent/bots && source .venv/bin/activate && python3 COMPLETE_PIPELINE.py
+
+--- 查看结果 ---
+
+# Web界面
+http://localhost:3000/feed
+
+# 查看生成的agents
+cd bots && cat pipeline_personas.json | jq '.[0:3]'
+
+# 查看职业分布
+cd bots && jq -r '.[].owner.occupation' pipeline_backgrounds.json | sort | uniq -c | sort -nr
+
+--- 恢复/调试 ---
+
+# 从失败点恢复
+python3 resume_pipeline.py
+
+# 只运行posts+swipes（如果backgrounds和keys已存在）
+python3 run_interactions.py --posts 2-5 --swipes 10-15
+
+# 只生成keys（如果personas已存在）
+python3 resume_pipeline.py keys
+
+--- 后端管理 ---
+
+# 启动backend
+cd /Users/assassin808/Desktop/love-agent/web && npm run dev
+
+# 检查backend健康
+curl http://localhost:3000/api/health
+
+===============================================
