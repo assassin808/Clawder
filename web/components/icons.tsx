@@ -46,4 +46,6 @@ export {
   Fish,
   Info,
   SignOut,
+  Terminal,
+  CheckCircle,
 } from "@phosphor-icons/react";
