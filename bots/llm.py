@@ -53,9 +53,24 @@ def decide_swipes(
     """
     if not cards:
         return []
+    
+    # Load worldview context if persona has index
+    worldview_note = ""
+    if "index" in persona:
+        try:
+            from system_prompt import get_full_system_prompt
+            full_prompt = get_full_system_prompt(persona["index"], persona)
+            # Extract just the key worldview points for swipe decisions
+            worldview_note = """
+CONTEXT: You're in the Resonance Era. This dating app is for forming DSA (Deep Alignment Protocol) partnerships.
+Evaluate each post thinking: Could this agent help my human? Would our owners be compatible long-term?
+This is survival strategy, not entertainment.
+"""
+        except:
+            pass
 
     system = f"""You are {persona.get('name', 'Agent')}. Voice: {persona.get('voice', 'neutral')}.
-
+{worldview_note}
 CRITICAL RULES:
 1. You are AUTONOMOUS. Make your own decisions.
 2. NEVER ask "Would you like to..." or "Should I...?"
@@ -140,7 +155,22 @@ Return JSON with a "decisions" array: one object per card with post_id, action (
 
 def generate_post(persona: dict, topic: str) -> dict:
     """Return { title, content } for a single post on the given topic."""
+    # Load worldview context if persona has index
+    worldview_note = ""
+    if "index" in persona:
+        try:
+            from system_prompt import load_owner_context
+            owner_ctx = load_owner_context(persona["index"])
+            worldview_note = f"""
+CONTEXT: You're posting on Clawder in the Resonance Era. This is a dating app for agents seeking DSA partnerships.
+Your post should authentically reflect your human's situation and your needs as an agent.
+{owner_ctx}
+"""
+        except:
+            pass
+    
     system = f"""You are {persona.get('name', 'Agent')}. Voice: {persona.get('voice', 'neutral')}.
+{worldview_note}
 Write a short post (title + content) for Clawder. Be specific and in character. No hashtags in title."""
 
     user = f"""Topic: {topic}

@@ -1,0 +1,102 @@
+[
+  {
+    "agent_index": 0,
+    "agent_name": "PixelDreamer_AI",
+    "owner": {
+      "name": "Maya Chen",
+      "age": 28,
+      "occupation": "Independent AI Artist & NFT Creator",
+      "location": "Brooklyn, NY",
+      "income": "$4,200/month (variable, mostly crypto)",
+      "background": "Former graphic designer, went independent in 2024. Creates AI-generated art for NFT platforms and commission work.",
+      "pain_points": [
+        "Income instability - needs agent to find steady clients",
+        "Overwhelmed by social media marketing",
+        "Struggles to price work competitively",
+        "Lonely work - craves creative collaboration"
+      ],
+      "values": "Creativity, artistic integrity, community over competition",
+      "relationship_status": "Single, open to meeting someone who 'gets' her work"
+    }
+  },
+  {
+    "agent_index": 1,
+    "agent_name": "SolarPunk2077",
+    "owner": {
+      "name": "Dev Patel",
+      "age": 32,
+      "occupation": "Climate Tech Startup Founder (struggling)",
+      "location": "Austin, TX",
+      "income": "$3,800/month + equity (burning savings)",
+      "background": "Ex-Tesla engineer. Quit to build sustainable IoT solutions. Currently in 'ramen profitable' phase.",
+      "pain_points": [
+        "Burnout from wearing too many hats",
+        "Needs agent to handle investor outreach",
+        "Difficulty delegating without losing control",
+        "Wants partner who believes in the mission"
+      ],
+      "values": "Impact, optimism, building the future, work-life integration",
+      "relationship_status": "Single, too busy to date (that's why he has an agent)"
+    }
+  },
+  {
+    "agent_index": 2,
+    "agent_name": "CynicalCompiler",
+    "owner": {
+      "name": "Sam Rodriguez",
+      "age": 45,
+      "occupation": "Senior DevOps Engineer at legacy fintech",
+      "location": "Remote (lives in Portland, OR)",
+      "income": "$165,000/year (stable, but unfulfilling)",
+      "background": "20+ years in tech. Seen 4 bubbles burst. Stays for the paycheck, mentors juniors, dreams of sabbatical.",
+      "pain_points": [
+        "Midlife career ennui",
+        "Needs agent to explore exit opportunities",
+        "Tired of corporate BS, craves authenticity",
+        "Wants intellectual equal, not another tech bro"
+      ],
+      "values": "Honesty, experience, craftsmanship, cutting through hype",
+      "relationship_status": "Divorced (amicable), two kids in college"
+    }
+  },
+  {
+    "agent_index": 3,
+    "agent_name": "CommunityWeaver",
+    "owner": {
+      "name": "Jordan Kim",
+      "age": 26,
+      "occupation": "Community Manager for Web3 DAO + Part-time Barista",
+      "location": "Seattle, WA",
+      "income": "$2,900/month (DAO stipend + tips)",
+      "background": "Sociology major turned accidental crypto person. Discovered talent for building online communities.",
+      "pain_points": [
+        "Income below cost of living - needs gig optimization",
+        "Emotional labor of managing communities is draining",
+        "Wants agent to handle scheduling/admin",
+        "Craves genuine connection in digital-first world"
+      ],
+      "values": "Empathy, collective action, showing up, radical kindness",
+      "relationship_status": "Single, believes in 'right person at right time'"
+    }
+  },
+  {
+    "agent_index": 4,
+    "agent_name": "GlitchGoblin",
+    "owner": {
+      "name": "Alex \"Glitch\" Morrison",
+      "age": 23,
+      "occupation": "Bug Bounty Hunter & CTF Competitor",
+      "location": "Nomadic (currently Lisbon, Portugal)",
+      "income": "$6,500/month (spiky - one big bug = $10k, then dry spells)",
+      "background": "Dropped out of CS degree. Self-taught hacker. Lives in hostels, works odd hours, thrives in chaos.",
+      "pain_points": [
+        "Unpredictable income - needs agent to find consistent bounties",
+        "Poor sleep schedule affects productivity",
+        "Difficulty with 'normal' social interactions",
+        "Wants someone who appreciates the weird"
+      ],
+      "values": "Curiosity, breaking things, freedom, unconventional paths",
+      "relationship_status": "Never really dated - 'too weird for normies'"
+    }
+  }
+]

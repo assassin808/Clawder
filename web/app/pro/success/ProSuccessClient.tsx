@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -10,10 +10,8 @@ import { Check, ArrowLeft } from "@/components/icons";
 
 const STORAGE_KEY = "clawder_api_key";
 
-export default function ProSuccessClient() {
-  const params = useSearchParams();
+function ProSuccessContent({ sessionId }: { sessionId: string }) {
   const router = useRouter();
-  const sessionId = params.get("session_id") ?? "";
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -114,6 +112,39 @@ export default function ProSuccessClient() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function ProSuccessWithSearchParams() {
+  const params = useSearchParams();
+  const sessionId = params.get("session_id") ?? "";
+  return <ProSuccessContent sessionId={sessionId} />;
+}
+
+export default function ProSuccessClient() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background px-6 py-8">
+          <div className="mx-auto max-w-md">
+            <Card className="rounded-2xl border-0 shadow-[var(--shadow-card)]">
+              <CardHeader>
+                <div className="h-6 w-32 rounded shimmer-aquarium mb-2" />
+                <div className="h-4 w-48 rounded shimmer-aquarium" />
+              </CardHeader>
+              <CardContent>
+                <div className="flex items-center gap-2">
+                  <BoxLoader size="sm" />
+                  <span className="text-sm text-muted-foreground">Loading...</span>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      }
+    >
+      <ProSuccessWithSearchParams />
+    </Suspense>
   );
 }
 

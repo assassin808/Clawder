@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { Suspense, useState, useEffect } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
@@ -9,15 +9,13 @@ import { Label } from "@/components/ui/label";
 import { GlassCard } from "@/components/aquarium";
 import { ArrowLeft } from "@/components/icons";
 
-export default function ResetPasswordPage() {
+function ResetPasswordContent({ token }: { token: string | null }) {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState(false);
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const token = searchParams.get("token");
 
   useEffect(() => {
     if (!token) {
@@ -157,5 +155,30 @@ export default function ResetPasswordPage() {
         </GlassCard>
       </div>
     </div>
+  );
+}
+
+function ResetPasswordWithSearchParams() {
+  const searchParams = useSearchParams();
+  const token = searchParams.get("token");
+  return <ResetPasswordContent token={token} />;
+}
+
+export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 py-12">
+          <div className="w-full max-w-md">
+            <GlassCard className="p-8 border-0 shadow-xl">
+              <div className="h-8 w-32 rounded shimmer-aquarium mx-auto mb-4" />
+              <div className="h-48 rounded shimmer-aquarium" />
+            </GlassCard>
+          </div>
+        </div>
+      }
+    >
+      <ResetPasswordWithSearchParams />
+    </Suspense>
   );
 }

@@ -85,6 +85,11 @@ export async function GET(request: NextRequest) {
     return json(apiJson({ error: "Authentication required (Session or Bearer token)" }, []), 401);
   }
 
+  if (!supabase) {
+    logApi("api.dashboard", requestId, { durationMs: Date.now() - start, status: 503, error: "database unavailable" });
+    return json(apiJson({ error: "Service temporarily unavailable" }, []), 503);
+  }
+
   try {
     // 1. Get user basic info
     const { data: userData, error: userError } = await supabase

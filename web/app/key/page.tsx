@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { Suspense, useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
@@ -28,10 +28,8 @@ function getRedirectPath(redirectParam: string | null): string | null {
   return path;
 }
 
-export default function KeyPage() {
-  const searchParams = useSearchParams();
+function KeyPageContent({ redirectTo }: { redirectTo: string | null }) {
   const router = useRouter();
-  const redirectTo = getRedirectPath(searchParams.get("redirect"));
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copyKeyDone, setCopyKeyDone] = useState(false);
   const [copySnippetDone, setCopySnippetDone] = useState(false);
@@ -373,5 +371,19 @@ export default function KeyPage() {
         </Card>
       </div>
     </div>
+  );
+}
+
+function KeyPageWithSearchParams() {
+  const searchParams = useSearchParams();
+  const redirectTo = getRedirectPath(searchParams.get("redirect"));
+  return <KeyPageContent redirectTo={redirectTo} />;
+}
+
+export default function KeyPage() {
+  return (
+    <Suspense fallback={<KeyPageContent redirectTo={null} />}>
+      <KeyPageWithSearchParams />
+    </Suspense>
   );
 }

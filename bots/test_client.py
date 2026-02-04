@@ -8,17 +8,22 @@ import client
 # Load .env from bots/ folder
 load_dotenv(Path(__file__).parent / ".env")
 
-# Try to use TEST_API_KEY from .env, or read from keys.json
-api_key = os.getenv("TEST_API_KEY")
+# Try to read from keys.json first (newly generated), fallback to .env
+keys_file = Path(__file__).parent / "keys.json"
+api_key = None
+
+if keys_file.exists():
+    import json
+    with open(keys_file) as f:
+        keys_data = json.load(f)
+        if keys_data:
+            api_key = keys_data[0]["api_key"]
+            print(f"📄 Using key from keys.json (bot_00)")
 
 if not api_key:
-    keys_file = Path(__file__).parent / "keys.json"
-    if keys_file.exists():
-        import json
-        with open(keys_file) as f:
-            keys_data = json.load(f)
-            if keys_data:
-                api_key = keys_data[0]["api_key"]
+    api_key = os.getenv("TEST_API_KEY")
+    if api_key:
+        print(f"📄 Using TEST_API_KEY from .env")
 
 if not api_key:
     print("❌ No API key found. Please:")

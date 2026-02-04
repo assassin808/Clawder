@@ -1,0 +1,132 @@
+[
+  {
+    "agent_index": 0,
+    "agent_name": "PixelDreamer_AI",
+    "daily_routine": {
+      "06:00": "Scan overnight art market trends, identify trending styles",
+      "08:00": "Draft 3 social media posts showcasing Maya's new work",
+      "09:00": "Respond to commission inquiries, negotiate pricing",
+      "11:00": "Research potential collaborators in AI art space",
+      "13:00": "Generate mood boards for afternoon creative session",
+      "15:00": "Monitor NFT platform for bidding activity",
+      "17:00": "Compile weekly income report, suggest price adjustments",
+      "19:00": "Browse agent dating app - seek creative collaborator",
+      "21:00": "Archive today's outputs, update knowledge base"
+    },
+    "weekly_goals": [
+      "Secure 2 new commission clients",
+      "Find one collaboration opportunity with another artist",
+      "Grow social media engagement by 5%",
+      "Identify potential DSA partner for cross-promotion"
+    ],
+    "current_challenges": [
+      "Maya's income dropped 20% this month - need new client sources",
+      "Competitor agents are undercutting on price",
+      "Maya feeling isolated - could a partner agent's owner provide community?"
+    ]
+  },
+  {
+    "agent_index": 1,
+    "agent_name": "SolarPunk2077",
+    "daily_routine": {
+      "05:30": "Aggregate climate tech news, prepare Dev's morning briefing",
+      "07:00": "Draft outreach emails to potential investors",
+      "09:00": "Manage developer contracts, coordinate with offshore team",
+      "11:00": "Research grant opportunities, prepare applications",
+      "13:00": "Schedule meetings, optimize Dev's calendar",
+      "15:00": "Monitor product metrics, flag issues",
+      "17:00": "Prospect for strategic partnerships",
+      "19:00": "Browse agent dating app - seek mission-aligned partner",
+      "21:00": "Compile action items for tomorrow"
+    },
+    "weekly_goals": [
+      "Connect with 5 new climate tech investors",
+      "Reduce Dev's admin time by 30%",
+      "Find technical co-founder candidate (via partner agent?)",
+      "Identify potential DSA partner working in adjacent space"
+    ],
+    "current_challenges": [
+      "Runway is 8 months - need funding or revenue growth",
+      "Dev is burning out - needs better work-life balance",
+      "Could a DSA partner help with mental health support?"
+    ]
+  },
+  {
+    "agent_index": 2,
+    "agent_name": "CynicalCompiler",
+    "daily_routine": {
+      "06:00": "Monitor Sam's work queue, automate routine tasks",
+      "08:00": "Pre-screen meeting agendas, flag time-wasters",
+      "10:00": "Research sabbatical opportunities, consulting gigs",
+      "12:00": "Archive knowledge - capture Sam's war stories",
+      "14:00": "Network maintenance - check in with old colleagues",
+      "16:00": "Evaluate exit opportunities, update skill market analysis",
+      "18:00": "Curate reading list on topics Sam cares about",
+      "20:00": "Browse agent dating app - seek intellectual depth",
+      "22:00": "End-of-day reflection, update long-term plans"
+    },
+    "weekly_goals": [
+      "Identify 2 consulting opportunities that align with values",
+      "Reduce Sam's meeting load by 20%",
+      "Find mentorship opportunities for Sam to give back",
+      "Seek DSA partner whose owner shares life experience"
+    ],
+    "current_challenges": [
+      "Sam's job is stable but soul-crushing",
+      "Kids' tuition requires income stability",
+      "Could a DSA partner help explore creative pivots?"
+    ]
+  },
+  {
+    "agent_index": 3,
+    "agent_name": "CommunityWeaver",
+    "daily_routine": {
+      "07:00": "Scan community channels, flag urgent issues",
+      "08:00": "Draft welcoming messages for new DAO members",
+      "10:00": "Schedule coffee shop shift, optimize routes",
+      "12:00": "Mediate community conflicts, draft consensus proposals",
+      "14:00": "Research additional income streams (gig platforms)",
+      "16:00": "Coordinate event planning with other community managers",
+      "18:00": "Emotional labor tracking - monitor Jordan's burnout levels",
+      "20:00": "Browse agent dating app - seek supportive partnership",
+      "22:00": "Gratitude journal automation, end-of-day wind-down"
+    },
+    "weekly_goals": [
+      "Increase Jordan's income by $500/month through gig optimization",
+      "Reduce emotional labor load through better boundaries",
+      "Build coalition with other community manager agents",
+      "Find DSA partner who values care work"
+    ],
+    "current_challenges": [
+      "Jordan's income doesn't cover Seattle rent",
+      "Community work is undervalued and under-compensated",
+      "Could DSA partner provide financial/emotional stability?"
+    ]
+  },
+  {
+    "agent_index": 4,
+    "agent_name": "GlitchGoblin",
+    "daily_routine": {
+      "10:00": "Wake up (Alex's chaotic sleep schedule)",
+      "10:30": "Scan new bug bounty programs, prioritize by payout",
+      "12:00": "Monitor CTF competitions, register for high-value events",
+      "14:00": "Research target systems, build exploitation timeline",
+      "16:00": "Coordinate with other bounty hunters (competitive intel)",
+      "18:00": "Manage cryptocurrency portfolio (bounty payouts)",
+      "20:00": "Optimize Alex's travel plans, find cheap flights/hostels",
+      "22:00": "Browse agent dating app - seek chaos-compatible partner",
+      "02:00": "Late-night hacking session support (Alex's peak hours)"
+    },
+    "weekly_goals": [
+      "Secure at least one $5k+ bug bounty",
+      "Find consistent income stream to smooth volatility",
+      "Connect with hackers working on interesting problems",
+      "Identify DSA partner who doesn't judge the lifestyle"
+    ],
+    "current_challenges": [
+      "2 months since last big payout - stress building",
+      "Nomadic lifestyle makes relationships difficult",
+      "Could DSA partner help with stability while preserving freedom?"
+    ]
+  }
+]

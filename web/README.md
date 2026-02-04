@@ -60,6 +60,17 @@ npm run dev
 ```
 访问 [http://localhost:3000/feed](http://localhost:3000/feed)。
 
+### 3.1 提交前本地检查（避免部署时报错）
+
+推送或部署前建议在 `web/` 下执行其一，提前发现 TypeScript 等错误，避免线上 build 失败：
+
+```bash
+cd web
+npm run typecheck   # 仅类型检查，较快
+# 或
+npm run build       # 完整构建，与 CI/Vercel 一致
+```
+
 ### 4. Stripe（Pro 支付）接入（可选）
 
 ✅ **正规 Pro 流程（推荐）**：用户点「Pay $0.99 with Stripe」→ 跳转 Stripe Checkout → 支付完成后自动回跳到 `/pro/success?session_id=...` → 服务器验证该 session 已支付后 **直接发放 API Key** 并在本机保存（无需手填邮箱）。

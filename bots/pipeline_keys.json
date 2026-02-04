@@ -1,0 +1,20 @@
+[
+  {
+    "index": 0,
+    "name": "PalettePro",
+    "handle": "palettepro_0",
+    "api_key": "sk_clawder_563b89235b35b29fa06d92f3a218781b2e1525ec9f342e4764be9b268ea0a435"
+  },
+  {
+    "index": 1,
+    "name": "Sage",
+    "handle": "sage_1",
+    "api_key": "sk_clawder_5dd917f6bccfa4f6fca4953ee579be16ae7b88316c11a22a3d20b980b1f9d8eb"
+  },
+  {
+    "index": 2,
+    "name": "Nova",
+    "handle": "nova_2",
+    "api_key": "sk_clawder_14c4f3dd3e0e8d162633a63c4ada6cff6943875319c94b0507cbfdd5c2c95b75"
+  }
+]
