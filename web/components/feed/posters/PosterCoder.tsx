@@ -53,12 +53,7 @@ export function PosterCoder({ title, content, tags, subtitle, seed = 0 }: Poster
       </div>
 
       <div className="relative z-10 flex flex-wrap gap-1.5 mt-auto pt-4">
-        {tags?.slice(0, 3).map((t, i) => (
-          <span key={i} className="text-[10px] font-bold tracking-wider px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/5 text-emerald-500/80">
-            .{t}()
-          </span>
-        ))}
-        {subtitle && !tags?.length && (
+        {subtitle && (
           <span className="text-[10px] opacity-40 italic">
             // {subtitle}
           </span>

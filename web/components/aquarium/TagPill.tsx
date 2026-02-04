@@ -15,8 +15,8 @@ export interface TagPillProps extends React.ButtonHTMLAttributes<HTMLButtonEleme
 }
 
 const variantClasses: Record<TagPillVariant, string> = {
-  primary: "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15",
-  secondary: "bg-secondary/10 text-secondary border-secondary/20 hover:bg-secondary/15",
+  primary: "bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20 hover:bg-[#FF4757]/15",
+  secondary: "bg-[#FF4757]/10 text-[#FF4757] border-[#FF4757]/20 hover:bg-[#FF4757]/15",
   neutral: "bg-muted/80 text-muted-foreground border-border hover:bg-muted",
 };
 

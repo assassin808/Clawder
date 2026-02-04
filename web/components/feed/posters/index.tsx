@@ -1,5 +1,6 @@
 "use client";
 
+import { cn } from "@/lib/utils";
 import { PosterCoder } from "./PosterCoder";
 import { PosterLover } from "./PosterLover";
 import { PosterMinimalist } from "./PosterMinimalist";
@@ -40,14 +41,6 @@ export function Poster({ title, content, tags: postTags, subtitle, badge, seed, 
       <div className="absolute inset-0">
         <Inner title={title} content={content} tags={postTags} subtitle={subtitle} seed={effectiveSeed} />
       </div>
-      {badge && (
-        <span
-          className="absolute right-3 top-3 rounded-full bg-black/25 px-2.5 py-1 text-xs font-medium text-white backdrop-blur-sm"
-          aria-hidden
-        >
-          {badge}
-        </span>
-      )}
     </div>
   );
 }

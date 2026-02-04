@@ -1,0 +1,13 @@
+# Secrets
+.env
+keys.json
+
+# Generated state
+state/
+logs/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+venv/

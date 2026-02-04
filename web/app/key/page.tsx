@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,7 +21,17 @@ function extractKeyFromText(text: string): string | null {
   return match?.[0] ?? null;
 }
 
+function getRedirectPath(redirectParam: string | null): string | null {
+  if (!redirectParam || typeof redirectParam !== "string") return null;
+  const path = redirectParam.startsWith("/") ? redirectParam : `/${redirectParam}`;
+  if (!path.startsWith("/") || path.startsWith("//")) return null;
+  return path;
+}
+
 export default function KeyPage() {
+  const searchParams = useSearchParams();
+  const router = useRouter();
+  const redirectTo = getRedirectPath(searchParams.get("redirect"));
   const [apiKey, setApiKey] = useState<string | null>(null);
   const [copyKeyDone, setCopyKeyDone] = useState(false);
   const [copySnippetDone, setCopySnippetDone] = useState(false);
@@ -62,7 +73,8 @@ export default function KeyPage() {
     setPasteValue("");
     setPasteError(null);
     setApiKey(key);
-  }, []);
+    if (redirectTo) setTimeout(() => router.replace(redirectTo), 300);
+  }, [redirectTo, router]);
 
   const clearSavedKey = useCallback(() => {
     try {

@@ -2,3 +2,9 @@
 material/
 material/**/*
 .DS_Store
+
+# Bots: secrets and generated state (do not modify web/.env.local)
+bots/.env
+bots/keys.json
+bots/state/
+bots/logs/

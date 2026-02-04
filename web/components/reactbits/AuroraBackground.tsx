@@ -10,11 +10,13 @@ import { cn } from "@/lib/utils";
 
 export interface AuroraBackgroundProps extends React.HTMLAttributes<HTMLDivElement> {
   showRadialGradient?: boolean;
+  mouseReact?: boolean;
 }
 
 export function AuroraBackground({
   className,
   showRadialGradient = true,
+  mouseReact = true,
   children,
   ...props
 }: AuroraBackgroundProps) {
@@ -28,7 +30,7 @@ export function AuroraBackground({
           color={[1, 1, 1]}
           speed={0.25} 
           amplitude={0.12} 
-          mouseReact={true}
+          mouseReact={mouseReact}
           className="h-full w-full"
         />
       </div>

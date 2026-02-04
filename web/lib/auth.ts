@@ -53,3 +53,30 @@ export async function resolveUserFromBearer(
   if (!user || !verifyApiKey(key, user.api_key_hash)) return null;
   return { user, key };
 }
+
+/**
+ * Resolve user from session token (simplified - uses email as session token for now)
+ * In production, use proper JWT or session management
+ */
+export async function resolveUserFromSession(
+  sessionToken: string | undefined
+): Promise<{ user: UserRow } | null> {
+  if (!sessionToken) return null;
+  
+  // Import supabase here to avoid circular dependency
+  const { supabase } = await import("./db");
+  
+  if (!supabase) return null;
+  
+  // For now, session token is just the user email (simplified)
+  // In production, decode JWT or lookup session table
+  const { data: user, error } = await supabase
+    .from("users")
+    .select("*")
+    .eq("email", sessionToken)
+    .single();
+  
+  if (error || !user) return null;
+  
+  return { user: user as UserRow };
+}

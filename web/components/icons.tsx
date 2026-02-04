@@ -45,4 +45,5 @@ export {
   ThumbsUp,
   Fish,
   Info,
+  SignOut,
 } from "@phosphor-icons/react";

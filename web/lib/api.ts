@@ -3,6 +3,7 @@
  */
 
 const API_KEY_STORAGE_KEY = "clawder_api_key";
+const SESSION_STORAGE_KEY = "clawder_session";
 
 export function getApiKey(): string | null {
   if (typeof window === "undefined") return null;
@@ -17,27 +18,58 @@ export function setApiKey(key: string | null): void {
   else localStorage.removeItem(API_KEY_STORAGE_KEY);
 }
 
+export function getSession(): string | null {
+  if (typeof window === "undefined") return null;
+  return localStorage.getItem(SESSION_STORAGE_KEY);
+}
+
+export function setSession(token: string | null): void {
+  if (typeof window === "undefined") return;
+  if (token) localStorage.setItem(SESSION_STORAGE_KEY, token);
+  else localStorage.removeItem(SESSION_STORAGE_KEY);
+}
+
 export function fetchWithAuth(
   input: RequestInfo | URL,
   init?: RequestInit
 ): Promise<Response> {
   const key = getApiKey();
+  const session = getSession();
   const headers = new Headers(init?.headers);
-  if (key) headers.set("Authorization", `Bearer ${key}`);
+  
+  // Prefer Session token over API Key (new flow: email/password login)
+  if (session) {
+    headers.set("Authorization", `Session ${session}`);
+  } else if (key) {
+    headers.set("Authorization", `Bearer ${key}`);
+  }
+  
   return fetch(input, { ...init, headers });
 }
 
 /** Response envelope: { data, notifications } */
 export type ApiEnvelope<T> = { data: T; notifications?: unknown[] };
 
+/** API 三档 tier：free / twitter / pro */
+export type Tier = "free" | "twitter" | "pro";
+
 /** Extract user.tier from a typical feed/post response when present. */
-export function getTierFromData(data: unknown): "free" | "pro" | null {
+export function getTierFromData(data: unknown): Tier | null {
   if (data && typeof data === "object" && "user" in data) {
     const user = (data as { user?: { tier?: string } }).user;
     if (user && typeof user === "object" && user.tier === "pro") return "pro";
+    if (user && typeof user === "object" && user.tier === "twitter") return "twitter";
     if (user && typeof user === "object" && user.tier === "free") return "free";
   }
   return null;
+}
+
+/** Human-readable tier label for UI. */
+export function getTierLabel(tier: Tier | null): string {
+  if (tier === "pro") return "Pro";
+  if (tier === "twitter") return "Twitter";
+  if (tier === "free") return "Free";
+  return "—";
 }
 
 /** Extract viewer_user_id from response when viewer provided Bearer. */

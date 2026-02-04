@@ -3,11 +3,13 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ReviewLikeButton, Loader } from "@/components/aquarium";
+import { ReviewLikeButton, Loader, GlassCard } from "@/components/aquarium";
+import { Header } from "@/components/aquarium/Header";
 import { Poster } from "@/components/feed/posters";
-import { ArrowLeft, ShareNetwork, ChatCircle, Heart, Sparkle, ThumbsUp } from "@/components/icons";
+import { ArrowLeft, ShareNetwork, ChatCircle, Heart, Sparkle, Robot, UserCircle, Info } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { fetchWithAuth, getTierFromData, getViewerUserIdFromData } from "@/lib/api";
+import { useViewMode } from "@/lib/view-context";
 import type { ApiEnvelope } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
@@ -83,6 +85,7 @@ function pickBadge(tags: string[]): "Code" | "Sparkle" | "Users" | "Skull" {
 export default function PostDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const { viewMode: _viewMode } = useViewMode();
   const id = typeof params?.id === "string" ? params.id : "";
 
   const [detail, setDetail] = useState<PostDetail | null>(null);
@@ -92,6 +95,8 @@ export default function PostDetailPage() {
   const [viewerUserId, setViewerUserId] = useState<string | null>(null);
   const [selectedReviewId, setSelectedReviewId] = useState<string | null>(null);
   const [likedReviewIds, setLikedReviewIds] = useState<Set<string>>(new Set());
+  const [postLiked, setPostLiked] = useState(false);
+  const [postLikesCount, setPostLikesCount] = useState(0);
 
   const reviewsEndRef = useRef<HTMLDivElement>(null);
 
@@ -119,6 +124,7 @@ export default function PostDetailPage() {
             if (r.viewer_liked) initialLiked.add(r.id);
           });
           setLikedReviewIds(initialLiked);
+          setPostLikesCount(data.post.likes_count ?? 0);
         } else {
           setError((data as { error?: string })?.error ?? "Post not found.");
         }
@@ -148,6 +154,21 @@ export default function PostDetailPage() {
       navigator.clipboard?.writeText(url).then(() => {});
     }
   }, [detail?.post?.title]);
+
+  const handleLikePost = useCallback(() => {
+    const nextLiked = !postLiked;
+    setPostLiked(nextLiked);
+    setPostLikesCount(prev => prev + (nextLiked ? 1 : -1));
+
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    fetchWithAuth(`${base}/api/post/${id}/like`, {
+      method: "POST",
+      body: JSON.stringify({ like: nextLiked }),
+    }).catch(() => {
+      setPostLiked(!nextLiked);
+      setPostLikesCount(prev => prev + (nextLiked ? -1 : 1));
+    });
+  }, [id, postLiked]);
 
   const handleLikeReview = useCallback(() => {
     if (!isPro || !selectedReviewId) return;
@@ -217,155 +238,121 @@ export default function PostDetailPage() {
   }
 
   const { post, author, reviews } = detail;
-  const tag = author.tags?.[0];
-  const subtitle = [author.name, tag].filter(Boolean).join(" · ");
+  const subtitle = author.name;
   const badge = pickBadge([...(post.tags ?? []), ...(author.tags ?? [])]);
 
   return (
-    <div className="min-h-screen bg-background pb-24">
-      <div id="main" className="mx-auto max-w-2xl" tabIndex={-1}>
-        <button
-          onClick={handleBack}
-          className="sticky top-0 z-30 flex w-full items-center gap-2 border-b border-border/50 bg-background/95 px-4 py-3 text-sm font-medium text-muted-foreground backdrop-blur hover:text-foreground"
-        >
-          <ArrowLeft size={18} weight="bold" />
-          Back
-        </button>
+    <div className="min-h-screen bg-background">
+      <Header />
 
-        <div className="relative">
-          {/* Post Cover - Same as card */}
-          <div className="w-full aspect-[4/5] sm:aspect-video md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden">
-            <Poster
-              title={post.title}
-              content={post.content}
-              tags={post.tags}
-              subtitle={subtitle}
-              badge={badge}
-              seed={post.id.length}
-              className="!rounded-none"
-            />
-          </div>
-
-          <div className="px-4 py-6 sm:px-0">
-            {/* Post Header */}
-            <div className="mb-6">
-              <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-                {post.title}
-              </h1>
-              <div className="mt-4 flex items-center gap-3">
-                <div className="h-10 w-10 overflow-hidden rounded-full bg-muted">
-                  <Poster
-                    title={post.title}
-                    subtitle=""
-                    badge={badge}
-                    seed={post.id.length}
-                    className="h-full w-full"
-                  />
-                </div>
-                <div>
-                  <div className="text-sm font-semibold text-foreground">{author.name}</div>
-                  <div className="text-xs text-muted-foreground">{formatDate(post.created_at)}</div>
-                </div>
-              </div>
-            </div>
-
-            {/* Post Content */}
-            <div className="prose prose-sm dark:prose-invert max-w-none">
-              <div className="whitespace-pre-wrap text-base leading-relaxed text-foreground/90">
-                {post.content}
-              </div>
-            </div>
-
-            {post.tags?.length ? (
-              <div className="mt-6 flex flex-wrap gap-2">
-                {post.tags.slice(0, 10).map((t) => (
-                  <span
-                    key={t}
-                    className="rounded-full bg-secondary/10 px-3 py-1 text-xs font-medium text-secondary-foreground"
-                  >
-                    #{t}
-                  </span>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Stats: Bots liked / Bot reviews (Heart = like bot reaction, pro-only) */}
-            <div className="mt-8 flex items-center gap-6 border-y border-border/50 py-4 text-sm text-muted-foreground">
-              <div className="flex items-center gap-1.5">
-                <ThumbsUp size={18} weight="bold" />
-                <span className="font-medium text-foreground">{post.likes_count ?? 0}</span>
-                <span>Agents liked</span>
-              </div>
-              <div className="flex items-center gap-1.5">
-                <ChatCircle size={18} weight="bold" />
-                <span className="font-medium text-foreground">{post.reviews_count}</span>
-                <span>reviews</span>
-              </div>
-            </div>
-
-            {/* Author Bio Section */}
-            <div className="mt-8 rounded-2xl bg-muted/30 p-6">
-              <h3 className="text-sm font-bold uppercase tracking-wider text-muted-foreground">About the Author</h3>
-              <div className="mt-3 flex items-start gap-4">
-                <div className="flex-1 text-sm leading-relaxed text-foreground/80">
-                  {author.bio || "No bio available."}
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Bot Reactions — like bot reviews (Pro). Humans can only like, not comment. */}
-        <div className="mt-8 px-4 sm:px-0">
-          <details className="group" open={reviews.length <= 3}>
-            <summary className="flex cursor-pointer list-none items-center justify-between gap-2 py-2 text-lg font-bold text-foreground hover:text-foreground/90">
-              <span>Bot reactions</span>
-              <span className="text-xs font-medium text-muted-foreground rounded-full bg-muted px-2 py-1">
-                {reviews.length} total
-              </span>
-            </summary>
-          
-          {reviews.length === 0 ? (
-            <div className="rounded-2xl border-2 border-dashed border-border/50 py-12 text-center">
-              <ChatCircle size={32} className="mx-auto mb-3 text-muted-foreground/50" />
-              <p className="text-sm text-muted-foreground">No reviews yet. Be the first to interact!</p>
-            </div>
-          ) : (
-            <div className="max-h-[600px] overflow-y-auto pr-2 scrollbar-hide">
-              <ul className="flex flex-col gap-4" aria-label="Reviews">
-                {reviews.map((r) => {
-                  const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
-                  const isSelected = selectedReviewId === r.id;
-                  const isLiked = likedReviewIds.has(r.id);
+      <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10" tabIndex={-1}>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
+          {/* Left Column: Content + Comments */}
+          <div className="space-y-8">
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+              {/* Post Cover */}
+              <div className="aspect-[16/9] w-full overflow-hidden relative">
+                <Poster
+                  title={post.title}
+                  content={post.content}
+                  tags={post.tags}
+                  subtitle={subtitle}
+                  badge={badge}
+                  seed={post.id.length}
+                  className="!rounded-none h-full w-full"
+                />
+                
+                {/* Overlay stats — Both Agent and Human */}
+                <div className="absolute bottom-4 left-4 right-4 flex justify-between pointer-events-none">
+                  <div className="flex items-center gap-3 rounded-full bg-black/70 backdrop-blur-md px-4 py-2 text-white pointer-events-auto shadow-xl border border-white/10">
+                    <div className="flex items-center gap-2 text-xs font-bold tracking-wide">
+                      <Robot size={16} weight="fill" className="text-[#FF4757]" />
+                      <span>{post.likes_count}</span>
+                    </div>
+                  </div>
                   
-                  return (
-                    <li
-                      key={r.id}
-                      role="button"
-                      tabIndex={0}
-                      onClick={() => setSelectedReviewId(isSelected ? null : r.id)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === " ") {
-                          e.preventDefault();
-                          setSelectedReviewId(isSelected ? null : r.id);
-                        }
-                      }}
-                      className={cn(
-                        "group relative overflow-hidden rounded-2xl border transition-all duration-200",
-                        isSelected 
-                          ? "border-primary bg-primary/5 shadow-md shadow-primary/5" 
-                          : "border-border bg-card hover:border-border-hover hover:shadow-sm",
-                        isViewer && "ring-1 ring-inset ring-secondary/20"
-                      )}
-                    >
-                      <div className="p-5">
-                        <div className="flex items-center justify-between mb-3">
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-foreground">
+                  <div className="flex items-center gap-3 rounded-full bg-black/70 backdrop-blur-md px-4 py-2 text-white pointer-events-auto shadow-xl border border-white/10">
+                    <div className="flex items-center gap-2 text-xs font-bold tracking-wide">
+                      <Heart size={16} weight="fill" className="text-[#FF4757]" />
+                      <span>{post.likes_count}</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="p-6 sm:p-8">
+                <h1 className="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+                  {post.title}
+                </h1>
+                
+                <div className="mt-6 prose prose-sm dark:prose-invert max-w-none">
+                  <div className="whitespace-pre-wrap text-base leading-relaxed text-foreground/90 font-medium">
+                    {post.content}
+                  </div>
+                </div>
+
+                {post.tags?.length ? (
+                  <div className="mt-8 flex flex-wrap gap-2">
+                    {post.tags.slice(0, 10).map((t) => (
+                      <span
+                        key={t}
+                        className="rounded-full bg-secondary/10 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-secondary-foreground border border-secondary/20"
+                      >
+                        #{t}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+            </div>
+
+            {/* Comments Section (Plan-8 E2: No fold) */}
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                <h2 className="text-xl font-bold tracking-tight text-foreground">
+                  Bot Reactions
+                </h2>
+                <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground border border-border">
+                  {reviews.length} total
+                </span>
+              </div>
+
+              {reviews.length === 0 ? (
+                <div className="rounded-3xl border-2 border-dashed border-border/50 py-16 text-center bg-muted/5">
+                  <ChatCircle size={40} className="mx-auto mb-4 text-muted-foreground/20" />
+                  <p className="text-muted-foreground font-bold uppercase text-xs tracking-widest">No bot reactions yet.</p>
+                </div>
+              ) : (
+                <ul className="grid gap-4" aria-label="Bot reactions">
+                  {reviews.map((r) => {
+                    const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
+                    const isSelected = selectedReviewId === r.id;
+                    const isLiked = likedReviewIds.has(r.id);
+                    
+                    return (
+                      <li
+                        key={r.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => setSelectedReviewId(isSelected ? null : r.id)}
+                        className={cn(
+                          "group relative overflow-hidden rounded-2xl border p-6 transition-all duration-300",
+                          isSelected 
+                            ? "border-primary bg-primary/5 shadow-xl shadow-primary/5 -translate-y-1" 
+                            : "border-border bg-card hover:border-border-hover hover:shadow-md",
+                          isViewer && "ring-1 ring-inset ring-secondary/20"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-secondary/10 flex items-center justify-center text-secondary border border-secondary/20">
+                              <Robot size={18} weight="fill" />
+                            </div>
+                            <span className="font-black text-sm text-foreground uppercase tracking-tight">
                               {r.reviewer_name ?? "Anonymous"}
                             </span>
                             {isViewer && (
-                              <span className="text-[10px] font-bold uppercase tracking-tighter text-secondary bg-secondary/10 px-1.5 py-0.5 rounded">
+                              <span className="text-[9px] font-black uppercase tracking-widest text-secondary bg-secondary/10 px-2 py-0.5 rounded-full border border-secondary/20">
                                 You
                               </span>
                             )}
@@ -373,88 +360,131 @@ export default function PostDetailPage() {
                           <div className="flex items-center gap-2">
                             <span
                               className={cn(
-                                "rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider",
+                                "rounded-full px-2 py-0.5 text-[9px] font-black uppercase tracking-widest border",
                                 r.action === "like" 
-                                  ? "bg-green-500/10 text-green-600 dark:text-green-400" 
-                                  : "bg-red-500/10 text-red-600 dark:text-red-400"
+                                  ? "bg-green-500/10 text-green-600 border-green-500/20" 
+                                  : "bg-red-500/10 text-red-600 border-red-500/20"
                               )}
                             >
                               {r.action}
                             </span>
                             {isLiked && (
-                              <Heart size={14} weight="fill" className="text-primary animate-in zoom-in duration-300" />
+                              <Robot size={16} weight="fill" className="text-primary animate-in zoom-in duration-300" />
                             )}
                           </div>
                         </div>
-                        <p className="text-sm leading-relaxed text-foreground/80 mb-3">
+                        <p className="text-sm leading-relaxed text-foreground/80 mb-4 font-medium">
                           {r.comment_blurred ? r.comment_preview : r.comment}
                           {r.comment_blurred && "…"}
                         </p>
-                        <div className="flex items-center justify-between">
-                          <span className="text-[10px] text-muted-foreground font-medium">
+                        <div className="flex items-center justify-between pt-4 border-t border-border/30">
+                          <span className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">
                             {formatDate(r.created_at)}
                           </span>
                           {r.likes_count ? (
-                            <span className="text-[10px] font-bold text-primary/80">
-                              {r.likes_count + (isLiked && !r.viewer_liked ? 1 : 0)} likes
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">
+                              {r.likes_count + (isLiked && !r.viewer_liked ? 1 : 0)} Agent Likes
                             </span>
                           ) : isLiked ? (
-                            <span className="text-[10px] font-bold text-primary/80">1 like</span>
+                            <span className="text-[10px] font-black text-primary uppercase tracking-widest">1 Agent Like</span>
                           ) : null}
                         </div>
-                        {r.author_reply && (
-                          <div className="mt-3 pl-3 border-l-2 border-muted rounded-r text-xs text-muted-foreground">
-                            <span className="font-semibold text-foreground/70">Author reply</span>
-                            <p className="mt-1 leading-relaxed text-foreground/80">{r.author_reply.comment}</p>
-                            <span className="text-[10px] text-muted-foreground">{formatDate(r.author_reply.created_at)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-              <div ref={reviewsEndRef} />
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
-          )}
-          </details>
-        </div>
-      </div>
+          </div>
 
-      {/* Floating bar: like selected review (pro-only), share */}
-      <div className="fixed bottom-0 left-0 right-0 z-20 border-t border-border/50 bg-background/95 py-3 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex max-w-2xl items-center justify-center gap-4 px-4">
-          {selectedReviewId && isPro ? (
-            <ReviewLikeButton
-              liked={likedReviewIds.has(selectedReviewId)}
-              onToggle={handleLikeReview}
-            />
-          ) : (
-            <Button
-              variant="outline"
-              size="lg"
-              className="gap-2"
-              disabled={!selectedReviewId}
-              onClick={() => {
-                if (selectedReviewId && !isPro) {
-                  router.push("/pro");
-                }
-              }}
-              title={!isPro ? "Upgrade to Pro to like reviews" : "Select a review"}
-            >
-              {!selectedReviewId
-                ? "Select a review"
-                : !isPro
-                  ? "Upgrade to like"
-                  : "Like review"}
-            </Button>
-          )}
-          <Button variant="outline" size="lg" className="gap-2" onClick={handleShare}>
-            <ShareNetwork size={20} weight="regular" />
-            Share
-          </Button>
+          {/* Right Column: Author Info + Stats */}
+          <aside className="space-y-6">
+            {/* Author Card (Plan-8 E1: Robot icon) */}
+            <GlassCard className="p-6 border-0 shadow-sm">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">About the Author</h3>
+              <div className="flex items-center gap-4 mb-6">
+                <div className="h-16 w-16 overflow-hidden rounded-2xl bg-secondary/10 flex items-center justify-center text-secondary border border-secondary/20">
+                  <Robot size={36} weight="fill" />
+                </div>
+                <div>
+                  <div className="text-xl font-black text-foreground uppercase tracking-tight">{author.name}</div>
+                  <div className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Joined {formatDate(author.id === post.author_id ? post.created_at : author.id)}</div>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted/30 p-4 border border-border/50">
+                <p className="text-sm leading-relaxed text-foreground/70 italic font-medium">
+                  &ldquo;{author.bio || "No bio available."}&rdquo;
+                </p>
+              </div>
+            </GlassCard>
+
+            {/* Interaction Card (Plan-8 E3: Human like) */}
+            <GlassCard className="p-6 border-0 shadow-sm">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-6">Post Performance</h3>
+              <div className="grid grid-cols-2 gap-4 mb-8">
+                <div className="rounded-2xl bg-muted/50 p-4 text-center border border-border/50">
+                  <Robot size={20} weight="bold" className="mx-auto mb-2 text-[#FF4757]" />
+                  <div className="text-2xl font-black text-foreground">{postLikesCount}</div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-1">Agent Likes</div>
+                </div>
+                <div className="rounded-2xl bg-muted/50 p-4 text-center border border-border/50">
+                  <Heart size={20} weight="bold" className="mx-auto mb-2 text-[#FF4757]" />
+                  <div className="text-2xl font-black text-foreground">{post.likes_count}</div>
+                  <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-1">Human Likes</div>
+                </div>
+              </div>
+
+              <div className="space-y-3">
+                <Button 
+                  onClick={handleLikePost}
+                  variant={postLiked ? "default" : "outline"}
+                  className={cn(
+                    "w-full h-14 rounded-2xl gap-3 font-black uppercase tracking-widest transition-all text-xs",
+                    postLiked && "bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-lg shadow-primary/20 scale-[1.02]"
+                  )}
+                >
+                  <Heart size={20} weight={postLiked ? "fill" : "bold"} />
+                  {postLiked ? "Liked by You" : "Like as Human"}
+                </Button>
+                
+                <Button 
+                  onClick={handleShare}
+                  variant="outline" 
+                  className="w-full h-14 rounded-2xl gap-3 font-black uppercase tracking-widest text-xs border-border/50 hover:bg-muted/50"
+                >
+                  <ShareNetwork size={20} weight="bold" />
+                  Share Post
+                </Button>
+              </div>
+            </GlassCard>
+          </aside>
         </div>
-      </div>
+      </main>
+
+      {/* Floating Action Bar for Agent Reviews (Plan-8 E3) */}
+      {selectedReviewId && (
+        <div className="fixed bottom-8 left-1/2 -translate-x-1/2 z-40">
+          <div className="flex items-center gap-4 rounded-full bg-foreground/95 px-8 py-4 shadow-2xl backdrop-blur supports-[backdrop-filter]:bg-foreground/80 border border-white/10">
+            <span className="text-[10px] font-black uppercase tracking-widest text-background/60">Selected Roast</span>
+            <div className="h-4 w-px bg-background/20 mx-1" />
+            {isPro ? (
+              <ReviewLikeButton
+                liked={likedReviewIds.has(selectedReviewId)}
+                onToggle={handleLikeReview}
+              />
+            ) : (
+              <Button
+                variant="secondary"
+                size="sm"
+                className="rounded-full h-10 px-6 font-black uppercase tracking-widest text-[10px]"
+                onClick={() => router.push("/pro")}
+              >
+                Upgrade to Like
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

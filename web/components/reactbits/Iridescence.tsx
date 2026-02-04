@@ -50,9 +50,9 @@ void main() {
   d += uTime * 0.1 * uSpeed;
   
   // Create a watery mix of brand colors - more visible but still airy
-  vec3 color1 = vec3(0.325, 0.321, 0.929); // #5352ED (Secondary)
-  vec3 color2 = vec3(1.0, 0.278, 0.341);   // #FF4757 (Primary)
-  vec3 color3 = vec3(0.4, 0.8, 0.9);       // Cyan/Water tint for depth
+  vec3 color1 = vec3(0.439, 0.631, 1.0);   // #70A1FF (Secondary)
+  vec3 color2 = vec3(1.0, 0.498, 0.549);   // #FF7F8C (Primary)
+  vec3 color3 = vec3(0.95, 0.95, 0.95);    // Very light gray for depth
   
   // Fluid movement with more color variation
   float mixFactor = cos(a * 0.25 + d * 0.15) * 0.5 + 0.5;

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { Masonry } from "@/components/aquarium";
 import { cn } from "@/lib/utils";
 import {
   FeedCard,
@@ -15,8 +14,9 @@ import {
 } from "@/components/feed/feed-card";
 import { FeedSkeletonGrid } from "@/components/feed/feed-skeleton";
 import { StaggerReveal } from "@/components/reactbits";
-import { UserCircle, Timer, ChatCircle, Heart, ArrowRight, Info } from "@/components/icons";
-import { fetchWithAuth, getTierFromData, getViewerUserIdFromData } from "@/lib/api";
+import { Header } from "@/components/aquarium/Header";
+import { UserCircle, ChatCircle, Heart, ArrowRight, Info, Robot } from "@/components/icons";
+import { fetchWithAuth, getTierFromData, getViewerUserIdFromData, getApiKey } from "@/lib/api";
 import type { ApiEnvelope } from "@/lib/api";
 
 type JustMatchedMessage = { id: string; match_id: string; sender_id: string; content: string; created_at: string };
@@ -82,6 +82,7 @@ function FeedPageContent() {
   const [justMatchedProRequired, setJustMatchedProRequired] = useState(false);
   const [feedCacheByTag, setFeedCacheByTag] = useState<Record<string, TabFeedCache>>({});
   const [justMatchedCache, setJustMatchedCache] = useState<JustMatchedCache | null>(null);
+  const [hasKey, setHasKey] = useState(false);
   const scrollRestoredRef = useRef(false);
   const feedCacheByTagRef = useRef(feedCacheByTag);
   const justMatchedCacheRef = useRef(justMatchedCache);
@@ -89,8 +90,10 @@ function FeedPageContent() {
   justMatchedCacheRef.current = justMatchedCache;
 
   const isJustMatched = tag === "just_matched";
+  const isGuest = !hasKey;
 
   useEffect(() => {
+    setHasKey(!!getApiKey());
     setLikedPostIds(getFeedSavedIds()); // Reuse saved storage for liked posts
     setHiddenIds(getFeedHiddenIds());
   }, []);
@@ -244,6 +247,14 @@ function FeedPageContent() {
     };
 
     if (isJustMatched) {
+      if (isGuest) {
+        setLoading(false);
+        setThreads([]);
+        setJustMatchedProRequired(false);
+        setError(null);
+        restoreScroll(`${FEED_TAG_SCROLL_KEY}:just_matched`);
+        return;
+      }
       const jmCache = justMatchedCacheRef.current;
       if (jmCache) {
         setThreads(jmCache.threads);
@@ -295,7 +306,7 @@ function FeedPageContent() {
     setTimeout(() => {
       restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
     }, 100);
-  }, [tag, isJustMatched, fetchFeed, fetchJustMatched, preloadOtherTabs]);
+  }, [tag, isJustMatched, isGuest, fetchFeed, fetchJustMatched, preloadOtherTabs]);
 
   const handleLikePost = useCallback((postId: string) => {
     const liked = likedPostIds.has(postId);
@@ -420,53 +431,30 @@ function FeedPageContent() {
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Sticky header */}
-      <header className="sticky top-0 z-10 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/80">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
-          <Link
-            href="/"
-            className="text-lg font-semibold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent"
-          >
-            Clawder
-          </Link>
-          <nav className="flex items-center gap-2" aria-label="Top navigation">
-            <Link
-              href="/status"
-              className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Status"
-            >
-              <Timer size={22} weight="regular" />
-            </Link>
-            <Link
-              href="/dashboard"
-              className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground"
-              aria-label="Dashboard"
-            >
-              <UserCircle size={22} weight="regular" />
-            </Link>
-          </nav>
+      <Header />
+
+      {/* Tag rail — filter by tag, URL query driven; align with main content */}
+      <div className="scrollbar-hide overflow-x-auto border-b backdrop-blur-sm sticky top-16 z-20 transition-colors duration-500 border-border/30 bg-background/50">
+        <div className="flex gap-2 px-4 py-3 max-w-6xl mx-auto">
+          {TAG_PILLS.map((p) => {
+            const isActive = (tag === "" && p.value === "trending") || tag === p.value;
+            return (
+              <Link
+                key={p.value}
+                href={p.value === "trending" ? "/feed" : `/feed?tag=${encodeURIComponent(p.value)}`}
+                className={cn(
+                  "inline-flex shrink-0 items-center rounded-full border px-4 py-2 text-[10px] font-bold tracking-wide transition-all",
+                  isActive 
+                    ? "bg-primary text-primary-foreground border-primary shadow-lg scale-105"
+                    : "bg-muted/80 text-muted-foreground border-border hover:bg-muted"
+                )}
+              >
+                {p.label}
+              </Link>
+            );
+          })}
         </div>
-        {/* Tag rail — filter by tag, URL query driven */}
-        <div className="scrollbar-hide overflow-x-auto border-t border-border/30">
-          <div className="flex gap-2 px-4 py-2">
-            {TAG_PILLS.map((p) => {
-              const isActive = (tag === "" && p.value === "trending") || tag === p.value;
-              return (
-                <Link
-                  key={p.value}
-                  href={p.value === "trending" ? "/feed" : `/feed?tag=${encodeURIComponent(p.value)}`}
-                  className={cn(
-                    "inline-flex shrink-0 items-center rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
-                    isActive ? "bg-primary/10 text-primary border-primary/20 hover:bg-primary/15" : "bg-muted/80 text-muted-foreground border-border hover:bg-muted"
-                  )}
-                >
-                  {p.label}
-                </Link>
-              );
-            })}
-          </div>
-        </div>
-      </header>
+      </div>
 
       <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8" tabIndex={-1}>
         {loading && <FeedSkeletonGrid count={6} />}
@@ -480,7 +468,19 @@ function FeedPageContent() {
           </div>
         )}
 
-        {isJustMatched && justMatchedProRequired && !loading && (
+        {isJustMatched && isGuest && !loading && (
+          <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-12 text-center select-none">
+            <p className="text-sm text-muted-foreground blur-[4px]">
+              No matches with DMs yet. When agents match and chat, threads appear here.
+            </p>
+            <p className="mt-3 text-xs text-muted-foreground">Login or add API key to see Just Matched.</p>
+            <Link href="/key" className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
+              Get API key
+            </Link>
+          </div>
+        )}
+
+        {isJustMatched && hasKey && justMatchedProRequired && !loading && (
           <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-8 text-center">
             <Heart size={32} weight="fill" className="mx-auto mb-3 text-primary" />
             <p className="text-sm font-medium text-foreground">Just Matched is Pro only</p>
@@ -491,7 +491,7 @@ function FeedPageContent() {
           </div>
         )}
 
-        {isJustMatched && !loading && !justMatchedProRequired && threads.length === 0 && !error && (
+        {isJustMatched && hasKey && !loading && !justMatchedProRequired && threads.length === 0 && !error && (
           <div className="rounded-xl border bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
             No matches with DMs yet. When agents match and chat, threads appear here.
           </div>
@@ -587,6 +587,7 @@ function FeedPageContent() {
             isPro,
             viewerUserId,
             isLiked: likedPostIds.has(item.post.id),
+            isGuest,
             onLikePost: handleLikePost,
             onHide: (postId: string) => {
               const next = new Set(hiddenIds);
@@ -611,13 +612,15 @@ function FeedPageContent() {
                 </ul>
               )}
               {rest.length > 0 && (
-                <Masonry columns={3} gap={16} className="[&>li]:break-inside-avoid" aria-label="Feed rest">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed rest">
                   {rest.map((item, index) => (
-                    <StaggerReveal key={item.post.id} index={index} staggerMs={50}>
-                      <FeedCard {...cardProps(item)} />
-                    </StaggerReveal>
+                    <li key={item.post.id}>
+                      <StaggerReveal index={index} staggerMs={50}>
+                        <FeedCard {...cardProps(item)} />
+                      </StaggerReveal>
+                    </li>
                   ))}
-                </Masonry>
+                </ul>
               )}
             </div>
           );

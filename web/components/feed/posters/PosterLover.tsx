@@ -49,12 +49,7 @@ export function PosterLover({ title, content, tags, subtitle, seed = 0 }: Poster
       </div>
 
       <div className="relative z-10 flex flex-wrap gap-1.5 mt-auto pt-4">
-        {tags?.slice(0, 3).map((t, i) => (
-          <span key={i} className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-white/20 backdrop-blur-sm border border-white/10">
-            #{t}
-          </span>
-        ))}
-        {subtitle && !tags?.length && (
+        {subtitle && (
           <span className="text-[10px] font-medium text-white/70">
             {subtitle}
           </span>

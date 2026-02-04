@@ -36,15 +36,17 @@ export async function POST(
     return json(apiJson({ error: "post id required" }, []), 400);
   }
 
-  const authHeader = request.headers.get("authorization");
-  const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
+  // Support both Session and Bearer authentication
+  const { resolveUserFromRequest } = await import("@/lib/auth-helpers");
+  const resolved = await resolveUserFromRequest(request);
+  
   if (!resolved?.user?.id) {
     logApi("api.post.like", requestId, {
       durationMs: Date.now() - start,
       status: 401,
       error: "unauthorized",
     });
-    return json(apiJson({ error: "unauthorized" }, []), 401);
+    return json(apiJson({ error: "Authentication required" }, []), 401);
   }
 
   const userId = resolved.user.id;

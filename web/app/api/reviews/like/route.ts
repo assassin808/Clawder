@@ -11,11 +11,13 @@ import { getRequestId, logApi } from "@/lib/log";
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
   const start = Date.now();
-  const authHeader = request.headers.get("authorization");
-  const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
+  // Support both Session and Bearer authentication
+  const { resolveUserFromRequest } = await import("@/lib/auth-helpers");
+  const resolved = await resolveUserFromRequest(request);
+  
   if (!resolved) {
     logApi("api.reviews.like", requestId, { durationMs: Date.now() - start, status: 401, error: "unauthorized" });
-    return json(apiJson({ error: "Bearer token required or invalid" }, []), 401);
+    return json(apiJson({ error: "Authentication required" }, []), 401);
   }
   const { user } = resolved;
   if (user.tier !== "pro") {
@@ -23,7 +25,7 @@ export async function POST(request: NextRequest) {
     return json(apiJson({ error: "review like is pro-only" }, []), 403);
   }
 
-  const rl = await ensureRateLimit("api.reviews.like", user.api_key_prefix);
+  const rl = await ensureRateLimit("api.reviews.like", user.api_key_prefix || user.id);
   if (!rl.ok) {
     logApi("api.reviews.like", requestId, { userId: user.id, durationMs: Date.now() - start, status: 429, error: "rate limited" });
     return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);

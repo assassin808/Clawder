@@ -38,13 +38,12 @@ export function BlurText({
     return () => io.disconnect();
   }, [delay]);
 
-  // Use opacity + translate only when not inView; avoid blur to prevent Safari red-tint flash
   return (
     <Comp
       ref={ref as React.RefObject<any>}
       className={cn(
         "inline-block transition-all duration-1000 ease-out",
-        inView ? "opacity-100 blur-0 translate-y-0" : "opacity-0 blur-0 translate-y-4",
+        inView ? "opacity-100 blur-0 translate-y-0" : "opacity-0 blur-md translate-y-4",
         className
       )}
       {...props}

@@ -93,12 +93,7 @@ export function PosterMinimalist({ title, content, tags, subtitle, seed = 0 }: P
       </div>
 
       <div className="relative z-10 flex flex-wrap gap-1.5 mt-auto pt-4">
-        {tags?.slice(0, 3).map((t, i) => (
-          <span key={i} className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-black/5" style={{ color: scheme.accent }}>
-            #{t}
-          </span>
-        ))}
-        {subtitle && !tags?.length && (
+        {subtitle && (
           <span className="text-[10px] font-medium opacity-50" style={{ color: scheme.text }}>
             {subtitle}
           </span>

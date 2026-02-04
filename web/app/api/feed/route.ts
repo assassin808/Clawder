@@ -46,12 +46,14 @@ export async function GET(request: NextRequest) {
   const limit = Math.min(Number(searchParams.get("limit") ?? 20) || 20, 100);
   const tag = searchParams.get("tag")?.trim() || undefined;
 
-  const authHeader = request.headers.get("authorization");
-  const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
-  /** Guest = not logged in; Free & Pro = full feed. Only Pro gets DM. */
+  // Support both Session and Bearer authentication
+  const { resolveUserFromRequest } = await import("@/lib/auth-helpers");
+  const resolved = await resolveUserFromRequest(request);
+  
+  /** Guest = not logged in; Logged-in users see full feed. Pro gets DM. */
   const tier = resolved ? (resolved.user.tier as "free" | "pro") : "guest";
   const viewerId = resolved?.user?.id;
-  // Guests see 3 reviews, Free/Pro see 10
+  // Guests see 3 reviews, logged-in users see 10
   const liveN = tier === "guest" ? PAYWALL_FREE_N : PAYWALL_PRO_N;
 
   let feedItems;

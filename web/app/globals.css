@@ -153,19 +153,6 @@
   backdrop-filter: blur(12px);
 }
 
-/* Aurora background — ReactBits-style; Color Guide: secondary→primary, low opacity, slow (Digital Aquarium) */
-@keyframes aurora-aquarium {
-  from {
-    background-position: 50% 50%, 50% 50%;
-  }
-  to {
-    background-position: 350% 50%, 350% 50%;
-  }
-}
-.animate-aurora-aquarium {
-  animation: aurora-aquarium 28s linear infinite;
-}
-
 /* Shimmer loader — Uiverse-style; Color Guide: low-contrast (secondary/10) */
 @keyframes shimmer-aquarium {
   0% {
@@ -186,18 +173,6 @@
   animation: shimmer-aquarium 1.8s ease-in-out infinite;
 }
 
-/* Heart burst — Uiverse-style; Color Guide: primary #FF4757 (review-like only) */
-@keyframes heart-burst-dot {
-  0% {
-    transform: translate(-50%, -50%) scale(0);
-    opacity: 1;
-  }
-  100% {
-    transform: translate(calc(-50% + var(--bx, 0px)), calc(-50% + var(--by, 0px))) scale(2);
-    opacity: 0;
-  }
-}
-
 @keyframes shake {
   0%, 100% { transform: translateX(0); }
   20%, 60% { transform: translateX(-4px); }
@@ -206,163 +181,6 @@
 
 .animate-shake {
   animation: shake 0.4s ease-in-out;
-}
-
-/* Glitch button (inspired by material/glitch) — softer pink */
-.glitch-ui-btn {
-  --btn-default-bg: #ff4757;
-  --btn-padding: 14px 20px;
-  --btn-transition: 0.3s;
-  --btn-letter-spacing: 0.1rem;
-  --btn-animation-duration: 1.2s;
-  --btn-shadow: 0 8px 22px rgba(255, 71, 87, 0.25);
-  --hover-btn-color: #ffffff;
-  --default-btn-color: #ffffff;
-  --font-size: 16px;
-  --font-weight: 600;
-  --font-family: var(--font-mono);
-  box-sizing: border-box;
-  padding: var(--btn-padding);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 56px;
-  width: 100%;
-  max-width: 24rem;
-  border-radius: 14px;
-  border: 1.5px solid rgba(255, 255, 255, 0.4);
-  background: var(--btn-default-bg);
-  color: var(--default-btn-color);
-  font: var(--font-weight) var(--font-size) var(--font-family);
-  cursor: pointer;
-  transition: var(--btn-transition);
-  overflow: hidden;
-  box-shadow: var(--btn-shadow);
-  text-transform: uppercase;
-}
-
-.glitch-ui-btn__label {
-  letter-spacing: var(--btn-letter-spacing);
-  transition: var(--btn-transition);
-  box-sizing: border-box;
-  position: relative;
-  background: inherit;
-}
-
-.glitch-ui-btn__label::before {
-  box-sizing: border-box;
-  position: absolute;
-  content: "";
-  background: inherit;
-}
-
-.glitch-ui-btn:hover,
-.glitch-ui-btn:focus-visible {
-  box-shadow: 0px 0px 24px rgba(255, 71, 87, 0.5);
-  border: 1.5px solid rgba(255, 255, 255, 0.8);
-}
-
-.glitch-ui-btn:hover .glitch-ui-btn__label {
-  color: var(--hover-btn-color);
-}
-
-.glitch-ui-btn:hover .glitch-ui-btn__label::before {
-  animation: chitchat linear both var(--btn-animation-duration);
-}
-
-@keyframes chitchat {
-  0% {
-    content: "#";
-  }
-
-  5% {
-    content: ".";
-  }
-
-  10% {
-    content: "^{";
-  }
-
-  15% {
-    content: "-!";
-  }
-
-  20% {
-    content: "#$_";
-  }
-
-  25% {
-    content: "№:0";
-  }
-
-  30% {
-    content: "#{+.";
-  }
-
-  35% {
-    content: "@}-?";
-  }
-
-  40% {
-    content: "?{4@%";
-  }
-
-  45% {
-    content: "=.,^!";
-  }
-
-  50% {
-    content: "?2@%";
-  }
-
-  55% {
-    content: "\\;1}]";
-  }
-
-  60% {
-    content: "?{%:%";
-    right: 0;
-  }
-
-  65% {
-    content: "|{f[4";
-    right: 0;
-  }
-
-  70% {
-    content: "{4%0%";
-    right: 0;
-  }
-
-  75% {
-    content: "'1_0<";
-    right: 0;
-  }
-
-  80% {
-    content: "{0%";
-    right: 0;
-  }
-
-  85% {
-    content: "]>'";
-    right: 0;
-  }
-
-  90% {
-    content: "4";
-    right: 0;
-  }
-
-  95% {
-    content: "2";
-    right: 0;
-  }
-
-  100% {
-    content: "";
-    right: 0;
-  }
 }
 
 /* Box loader (material/loading) — bouncing square + shadow */
@@ -463,3 +281,36 @@
 .loader-box-sm::after {
   animation: loader-jump-sm 0.5s linear infinite;
 }
+
+/* Plan-8: Refined sophisticated palette — Original Coral Red */
+:root {
+  --primary: #FF4757; /* Original Coral Red */
+  --secondary: #FF4757; /* Unified to Coral Red */
+  --background: #FAFAFA;
+}
+
+.theme-agent, .theme-human {
+  --primary: #FF4757;
+  --secondary: #FF4757;
+  --background: #FAFAFA;
+}
+
+/* Glitch Button (Plan-8) */
+.glitch-ui-btn {
+  @apply relative inline-flex items-center justify-center px-8 py-3 font-bold text-white transition-all duration-300;
+  background-color: #FF4757 !important;
+  border-radius: 1rem;
+  overflow: hidden;
+  box-shadow: 0 4px 20px rgba(255, 71, 87, 0.2);
+}
+
+.glitch-ui-btn:hover {
+  @apply transform scale-105;
+  background-color: #ff5e6c !important;
+  box-shadow: 0 6px 24px rgba(255, 71, 87, 0.3);
+}
+
+.glitch-ui-btn__label {
+  @apply relative z-10;
+}
+

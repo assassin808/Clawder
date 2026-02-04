@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { GlassCard } from "@/components/aquarium";
 import { Poster, type PosterBadge } from "./posters";
-import { ChatCircle, ThumbsUp, Heart } from "@/components/icons";
+import { ChatCircle, Heart, Robot, UserCircle } from "@/components/icons";
 import { cn } from "@/lib/utils";
+import { useViewMode, type ViewMode } from "@/lib/view-context";
 
 export type FeedPost = {
   id: string;
@@ -109,144 +110,182 @@ export type FeedCardProps = {
   isPro?: boolean;
   viewerUserId?: string | null;
   isLiked?: boolean;
+  isGuest?: boolean;
+  viewMode?: ViewMode;
   onLikePost?: (postId: string) => void;
   onHide?: (postId: string) => void;
   onLikeReview?: (reviewId: string) => void;
 };
 
-export function FeedCard({ item, isPro = false, viewerUserId, isLiked = false, onLikePost, onHide, onLikeReview }: FeedCardProps) {
+export function FeedCard({ 
+  item, 
+  isPro = false, 
+  viewerUserId, 
+  isLiked = false, 
+  isGuest = false, 
+  viewMode: _propViewMode,
+  onLikePost, 
+  onLikeReview 
+}: FeedCardProps) {
   const { post, author } = item;
   const reviews = item.live_reviews ?? item.featured_reviews ?? [];
-  const tag = author.tags?.[0];
-  const subtitle = [author.name, tag].filter(Boolean).join(" · ");
+  const subtitle = author.name; 
   const badge = pickBadge([...(post.tags ?? []), ...(author.tags ?? [])]);
+  const cardHref = `/post/${post.id}`; 
 
   return (
     <div className="block break-inside-avoid mb-4">
-      <Link href={`/post/${post.id}`} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
+      <Link href={cardHref} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
         <GlassCard as="article" className="overflow-hidden border-0 relative group">
-          {/* Layer 1: Poster */}
-          <Poster
-            title={post.title}
-            content={post.content}
-            tags={post.tags}
-            subtitle={subtitle}
-            badge={badge}
-            seed={post.id.length}
-          />
+          {/* Layer 1: Poster + Corner Counts (Plan-8 D3) */}
+          <div className="relative aspect-[4/5] w-full overflow-hidden">
+            <Poster
+              title={post.title}
+              content={post.content}
+              tags={post.tags}
+              subtitle={subtitle}
+              badge={badge}
+              seed={post.id.length}
+              className="h-full w-full"
+            />
+            
+            <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between p-3 pointer-events-none">
+              {/* Left bottom: Agent stats (Red) */}
+              <div className="flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-white pointer-events-auto shadow-xl border border-white/10">
+                <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide">
+                  <Robot size={14} weight="fill" className="text-[#FF4757]" />
+                  <span>{post.likes_count}</span>
+                </div>
+              </div>
 
-          {/* Layer 2: Meta — comments count + Save/Hide (stopPropagation) */}
-          <div className="flex items-center justify-between gap-2 bg-card px-3 py-2.5">
+              {/* Right bottom: Human stats (Heart) */}
+              <div className="ml-auto flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-white pointer-events-auto shadow-xl border border-white/10">
+                <button
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    onLikePost?.(post.id);
+                  }}
+                  className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide transition-colors hover:text-[#FF4757]"
+                >
+                  <Heart size={20} weight={isLiked ? "fill" : "bold"} className={cn(isLiked ? "text-[#FF4757]" : "text-white")} />
+                  <span>{post.likes_count + (isLiked ? 1 : 0)}</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Tags row — colored label chips (Plan-8 A3) */}
+          {((author.tags ?? []).length > 0) && (
+            <div className="flex flex-wrap gap-1.5 bg-card px-3 py-2">
+              {(author.tags ?? []).slice(0, 3).map((t, i) => (
+                <span
+                  key={`author-${t}`}
+                  className={cn(
+                    "rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide",
+                    i % 3 === 0 && "bg-[#FF4757]/15 text-[#FF4757]",
+                    i % 3 === 1 && "bg-[#FF4757]/15 text-[#FF4757]",
+                    i % 3 === 2 && "bg-[#FF4757]/15 text-[#FF4757]"
+                  )}
+                >
+                  #{t}
+                </span>
+              ))}
+            </div>
+          )}
+
+          {/* Layer 3: Author Info */}
+          <div className="flex items-center justify-between gap-2 bg-card px-3 py-2.5 border-t border-border/30">
             <div className="flex min-w-0 items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-secondary/20 flex items-center justify-center text-[10px] font-bold text-secondary-foreground shrink-0 uppercase">
-                {author.name.slice(0, 1)}
+              <div className="w-6 h-6 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757] shrink-0">
+                <Robot size={14} weight="fill" />
               </div>
               <span className="truncate text-xs font-semibold text-foreground/90">
                 {author.name}
               </span>
             </div>
-            <div className="flex shrink-0 items-center gap-3 text-muted-foreground/80">
-              <div className="flex items-center gap-1 text-[11px] font-medium">
-                <ChatCircle size={14} weight="bold" />
-                <span>{post.reviews_count}</span>
-              </div>
-              <div className="flex items-center gap-1 text-[11px] font-medium">
-                <ThumbsUp size={14} weight="bold" />
-                <span>{post.likes_count}</span>
-              </div>
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  onLikePost?.(post.id);
-                }}
-                className="flex items-center gap-1 text-[11px] font-medium transition-colors hover:text-primary"
-              >
-                <Heart size={15} weight={isLiked ? "fill" : "bold"} className={cn(isLiked && "text-primary")} />
-              </button>
-            </div>
           </div>
 
-        {/* Layer 3: Glass — live reviews */}
-        <div className="relative z-10 glass rounded-b-2xl p-3">
-          {reviews.length === 0 ? (
-            <p className="text-xs text-muted-foreground">No reviews yet.</p>
-          ) : (
-            <div className="max-h-[140px] overflow-y-auto scrollbar-hide pr-1">
-              <ul className="flex flex-col gap-2" aria-label="Live reviews">
-                {reviews.slice(0, isPro ? 10 : 3).map((r) => {
-                  const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
-                  const showFull = !r.comment_blurred;
-                  const text = showFull ? r.comment : (r.comment_preview ?? excerpt(r.comment, REVIEW_PREVIEW_LEN));
-                  const likesCount = r.likes_count ?? 0;
-                  const viewerLiked = r.viewer_liked ?? false;
+          {/* Layer 4: Glass — live reviews (Only in Agent view or Pro) */}
+          <div className="relative z-10 glass rounded-b-2xl p-3">
+            {reviews.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No reviews yet.</p>
+            ) : (
+              <div className="max-h-[140px] overflow-y-auto scrollbar-hide pr-1">
+                <ul className="flex flex-col gap-2" aria-label="Live reviews">
+                  {reviews.slice(0, isPro ? 10 : 3).map((r) => {
+                    const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
+                    const showFull = !r.comment_blurred;
+                    const text = showFull ? r.comment : (r.comment_preview ?? excerpt(r.comment, REVIEW_PREVIEW_LEN));
+                    const likesCount = r.likes_count ?? 0;
+                    const viewerLiked = r.viewer_liked ?? false;
 
-                  return (
-                    <li
-                      key={r.id}
-                      className={cn(
-                        "rounded-lg px-2.5 py-1.5 text-[11px] leading-tight",
-                        isViewer ? "bg-secondary/15 ring-1 ring-secondary/30" : "bg-foreground/5",
-                        !showFull && "relative"
-                      )}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <div className="flex-1 min-w-0">
-                          <span
-                            className={cn(
-                              "inline-block rounded px-1 py-0.5 font-bold uppercase text-[9px] tracking-tighter",
-                              r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                    return (
+                      <li
+                        key={r.id}
+                        className={cn(
+                          "rounded-lg px-2.5 py-1.5 text-[11px] leading-tight",
+                          isViewer ? "bg-[#FF4757]/15 ring-1 ring-[#FF4757]/30" : "bg-foreground/5",
+                          !showFull && "relative"
+                        )}
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex-1 min-w-0">
+                            <span
+                              className={cn(
+                                "inline-block rounded px-1 py-0.5 font-bold text-[9px] tracking-tight",
+                                r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
+                              )}
+                            >
+                              {r.action}
+                            </span>{" "}
+                            {!showFull ? (
+                              <span className="text-muted-foreground blur-[3px] select-none">
+                                {text}
+                              </span>
+                            ) : (
+                              <span className="text-foreground/80">{text}</span>
                             )}
-                          >
-                            {r.action}
-                          </span>{" "}
-                          {!showFull ? (
-                            <span className="text-muted-foreground blur-[3px] select-none">
-                              {text}
-                            </span>
-                          ) : (
-                            <span className="text-foreground/80">{text}</span>
+                          </div>
+                          {onLikeReview && (
+                            <button
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                onLikeReview(r.id);
+                              }}
+                              className="shrink-0 group/heart"
+                            >
+                              <div className="flex items-center gap-0.5">
+                                <Heart
+                                  size={12}
+                                  weight={viewerLiked ? "fill" : "bold"}
+                                  className={cn(
+                                    "transition-colors",
+                                    viewerLiked ? "text-[#FF4757]" : "text-muted-foreground/60 group-hover/heart:text-[#FF4757]/70"
+                                  )}
+                                />
+                                {likesCount > 0 && (
+                                  <span className={cn("text-[9px] font-bold", viewerLiked ? "text-[#FF4757]" : "text-muted-foreground/60")}>
+                                    {likesCount}
+                                  </span>
+                                )}
+                              </div>
+                            </button>
                           )}
                         </div>
-                        {onLikeReview && (
-                          <button
-                            onClick={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              onLikeReview(r.id);
-                            }}
-                            className="shrink-0 group/heart"
-                          >
-                            <div className="flex items-center gap-0.5">
-                              <Heart
-                                size={12}
-                                weight={viewerLiked ? "fill" : "bold"}
-                                className={cn(
-                                  "transition-colors",
-                                  viewerLiked ? "text-primary" : "text-muted-foreground/60 group-hover/heart:text-primary/70"
-                                )}
-                              />
-                              {likesCount > 0 && (
-                                <span className={cn("text-[9px] font-bold", viewerLiked ? "text-primary" : "text-muted-foreground/60")}>
-                                  {likesCount}
-                                </span>
-                              )}
-                            </div>
-                          </button>
-                        )}
-                      </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          )}
-          {(!isPro || !viewerUserId) && reviews.length > 0 && (
-            <p className="mt-2 text-center text-[10px] font-bold text-primary uppercase tracking-widest opacity-80">
-              {!viewerUserId ? PAYWALL_CTA_GUEST : !isPro ? PAYWALL_CTA_PRO : ""}
-            </p>
-          )}
-        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+            {(!isPro || !viewerUserId) && reviews.length > 0 && (
+              <p className="mt-2 text-center text-[10px] font-bold text-[#FF4757] tracking-wide opacity-80">
+                {!viewerUserId ? PAYWALL_CTA_GUEST : !isPro ? PAYWALL_CTA_PRO : ""}
+              </p>
+            )}
+          </div>
         </GlassCard>
       </Link>
     </div>
