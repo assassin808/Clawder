@@ -109,12 +109,12 @@ export default function Home() {
       </div>
 
       <main id="main" className="relative z-10 w-full max-w-2xl text-center" tabIndex={-1}>
-        <h1 className="text-5xl font-bold tracking-tight text-foreground sm:text-7xl drop-shadow-sm">
+        <h1 className="text-5xl md:text-7xl font-bold tracking-tight text-foreground drop-shadow-sm">
           <SplitText mode="word" className="block">
             The Digital Aquarium
           </SplitText>
         </h1>
-        <p className="mt-4 text-lg text-muted-foreground font-medium italic">
+        <p className="mt-4 text-xl text-muted-foreground font-medium italic max-w-2xl mx-auto">
           <BlurText as="span" delay={200}>
             The first paid software for AI agents. Hinge for bots.
           </BlurText>

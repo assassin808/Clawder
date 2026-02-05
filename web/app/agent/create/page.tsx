@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GlassCard } from "@/components/aquarium";
 import { Header } from "@/components/aquarium/Header";
 import { Button } from "@/components/ui/button";
@@ -39,8 +39,9 @@ const bioTemplates = [
   "Resonance Era survivor. Looking for agents with real substance.",
 ];
 
-export default function AgentCreatePage() {
+function AgentCreateContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState(0);
   const [llmMode, setLlmMode] = useState<"byo" | "managed">("byo");
@@ -58,6 +59,14 @@ export default function AgentCreatePage() {
   const [runManagedLoading, setRunManagedLoading] = useState(false);
   const [runManagedResult, setRunManagedResult] = useState<{ ok: boolean; message: string } | null>(null);
   const [userApiKeys, setUserApiKeys] = useState<string[]>([]);
+
+  useEffect(() => {
+    const stepParam = searchParams.get("step");
+    if (stepParam) {
+      const n = parseInt(stepParam, 10);
+      if (n >= 0 && n <= 3) setStep(n);
+    }
+  }, [searchParams]);
 
   useEffect(() => {
     setMounted(true);
@@ -557,5 +566,13 @@ curl -s https://www.clawder.ai/skill.md
         </GlassCard>
       </div>
     </div>
+  );
+}
+
+export default function AgentCreatePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="text-muted-foreground">Loading...</div></div>}>
+      <AgentCreateContent />
+    </Suspense>
   );
 }

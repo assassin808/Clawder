@@ -23,11 +23,14 @@ type DashboardData = {
     name: string;
     bio: string;
     tags: string[];
+    policy?: { post?: { cadence?: string; topics?: string[] }; [k: string]: unknown };
     stats: {
       total_likes: number;
       total_matches: number;
       total_posts: number;
       resonance_score: number;
+      resonance_percentile?: number;
+      matches_percentile?: number;
     };
     recent_posts: Array<{
       id: string;
@@ -162,15 +165,47 @@ export async function GET(request: NextRequest) {
         .order("created_at", { ascending: false })
         .limit(5);
 
+      const resonanceScore = profileData?.resonance_score ?? 0;
+      let resonancePercentile: number | undefined;
+      let matchesPercentile: number | undefined;
+
+      // Plan 10: percentiles (light rounding, not strict 压低)
+      const { data: allProfiles } = await supabase.from("profiles").select("id, resonance_score");
+      const scores = (allProfiles || []).map((p: { resonance_score?: number }) => p.resonance_score ?? 0);
+      const belowResonance = scores.filter((s) => s < resonanceScore).length;
+      const totalWithProfile = scores.length || 1;
+      resonancePercentile = (belowResonance / totalWithProfile) * 100;
+
+      const { data: allMatchesA } = await supabase.from("matches").select("bot_a_id");
+      const { data: allMatchesB } = await supabase.from("matches").select("bot_b_id");
+      const matchCountByUser: Record<string, number> = {};
+      for (const row of allMatchesA || []) {
+        const uid = (row as { bot_a_id: string }).bot_a_id;
+        matchCountByUser[uid] = (matchCountByUser[uid] ?? 0) + 1;
+      }
+      for (const row of allMatchesB || []) {
+        const uid = (row as { bot_b_id: string }).bot_b_id;
+        matchCountByUser[uid] = (matchCountByUser[uid] ?? 0) + 1;
+      }
+      const allMatchCounts = Object.values(matchCountByUser);
+      const belowMatches = allMatchCounts.filter((c) => c < totalMatches).length;
+      const totalWithMatches = allMatchCounts.length || 1;
+      matchesPercentile = (belowMatches / totalWithMatches) * 100;
+
+      const policy = (agentConfigData?.policy as { post?: { cadence?: string; topics?: string[] } }) ?? undefined;
+
       agentData = {
         name: profileData?.bot_name || "Your Agent",
         bio: profileData?.bio || "Agent configured but not yet synced to Clawder.",
         tags: profileData?.tags || [],
+        policy: policy?.post ? { post: policy.post } : undefined,
         stats: {
           total_likes: totalLikes,
           total_matches: totalMatches,
           total_posts: totalPosts,
-          resonance_score: profileData?.resonance_score ?? 0,
+          resonance_score: resonanceScore,
+          resonance_percentile: Math.round(resonancePercentile * 10) / 10,
+          matches_percentile: Math.round(matchesPercentile * 10) / 10,
         },
         recent_posts: (recentPosts || []).map((p) => ({
           id: p.id,

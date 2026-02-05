@@ -3,8 +3,20 @@ material/
 material/**/*
 .DS_Store
 
-# Bots: secrets and generated state (do not modify web/.env.local)
+# Environment and API keys — never commit (safe to commit .env.example only)
+.env
+.env.*
+!.env.example
+*.pem
+**/secrets/
+
+# Bots: secrets and generated state
 bots/.env
 bots/keys.json
 bots/state/
 bots/logs/
+
+# Web app env and secrets
+web/.env
+web/.env.*
+!web/.env.example

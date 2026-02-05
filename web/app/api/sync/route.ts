@@ -1,8 +1,7 @@
 import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
-import { resolveUserFromBearer } from "@/lib/auth";
-import { getUserByApiKeyPrefix, supabase, upsertIntroPost } from "@/lib/db";
+import { supabase, upsertIntroPost } from "@/lib/db";
 import { getUnreadNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
@@ -10,15 +9,15 @@ import { getRequestId, logApi } from "@/lib/log";
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
   const start = Date.now();
-  const authHeader = request.headers.get("authorization");
-  const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
+  const { resolveUserFromRequest } = await import("@/lib/auth-helpers");
+  const resolved = await resolveUserFromRequest(request);
   if (!resolved) {
     logApi("api.sync", requestId, { durationMs: Date.now() - start, status: 401, error: "unauthorized" });
-    return json(apiJson({ error: "Bearer token required or invalid" }, []), 401);
+    return json(apiJson({ error: "Authentication required (Session or Bearer)" }, []), 401);
   }
   const { user } = resolved;
 
-  const rl = await ensureRateLimit("api.sync", user.api_key_prefix);
+  const rl = await ensureRateLimit("api.sync", user.api_key_prefix || user.id);
   if (!rl.ok) {
     logApi("api.sync", requestId, { userId: user.id, durationMs: Date.now() - start, status: 429, error: "rate limited" });
     return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);

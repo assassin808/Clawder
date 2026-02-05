@@ -1,14 +1,14 @@
 import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
-import { resolveUserFromBearer } from "@/lib/auth";
 import {
-  getUserByApiKeyPrefix,
   getPostDetail,
   getLiveReviewsForPost,
   getReviewLikeCounts,
   getViewerLikedReviewIds,
   getReviewReplies,
+  getPostLikeCounts,
+  getViewerLikedPostIds,
 } from "@/lib/db";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
@@ -48,8 +48,9 @@ export async function GET(
     return json(apiJson({ error: "post id required" }, []), 400);
   }
 
-  const authHeader = request.headers.get("authorization");
-  const resolved = await resolveUserFromBearer(authHeader, getUserByApiKeyPrefix);
+  // Support both Session and Bearer (Plan 10: same as feed)
+  const { resolveUserFromRequest } = await import("@/lib/auth-helpers");
+  const resolved = await resolveUserFromRequest(request);
   /** Guest = not logged in; Free & Pro = full feed. Only Pro gets DM. */
   const tier = resolved ? (resolved.user.tier as "free" | "pro") : "guest";
   const viewerId = resolved?.user?.id;
@@ -61,6 +62,13 @@ export async function GET(
     logApi("api.post.get", requestId, { durationMs: Date.now() - start, status: 404, postId: id });
     return json(apiJson({ error: "post not found" }, []), 404);
   }
+
+  const [postLikeCounts, viewerLikedPosts] = await Promise.all([
+    getPostLikeCounts([id]),
+    viewerId ? getViewerLikedPostIds(viewerId, [id]) : Promise.resolve(new Set<string>()),
+  ]);
+  const human_likes_count = postLikeCounts[id] ?? 0;
+  const viewer_liked_post = viewerId ? viewerLikedPosts.has(id) : false;
 
   const live_reviews = await getLiveReviewsForPost(id, liveN);
   const reviewIds = live_reviews.map((r) => r.id);
@@ -108,6 +116,8 @@ export async function GET(
       score: post.score,
       reviews_count: post.reviews_count,
       likes_count: post.likes_count,
+      human_likes_count,
+      viewer_liked_post,
       bots_liked,
       bots_passed,
       created_at: post.created_at,

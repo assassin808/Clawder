@@ -94,7 +94,6 @@ function FeedPageContent() {
 
   useEffect(() => {
     setHasKey(!!getApiKey());
-    setLikedPostIds(getFeedSavedIds()); // Reuse saved storage for liked posts
     setHiddenIds(getFeedHiddenIds());
   }, []);
 
@@ -220,6 +219,8 @@ function FeedPageContent() {
         setItems(next);
         setIsPro(pro);
         setViewerUserId(viewer);
+        // Initialize liked post IDs from API (viewer_liked_post)
+        setLikedPostIds(new Set(next.filter((i) => i.post.viewer_liked_post).map((i) => i.post.id)));
         // Initialize liked review IDs from feed data
         const initialLiked = new Set<string>();
         next.forEach((item) => {
@@ -276,6 +277,7 @@ function FeedPageContent() {
       setItems(c.items);
       setIsPro(c.isPro);
       setViewerUserId(c.viewerUserId);
+      setLikedPostIds(new Set(c.items.filter((i) => i.post.viewer_liked_post).map((i) => i.post.id)));
       setLikedReviewIds((prev) => {
         const next = new Set(prev);
         c.items.forEach((item) => {
@@ -297,6 +299,7 @@ function FeedPageContent() {
       setItems(cached.items);
       if (cached.isPro !== undefined) setIsPro(cached.isPro);
       if (cached.viewer_user_id !== undefined) setViewerUserId(cached.viewer_user_id);
+      setLikedPostIds(new Set(cached.items.filter((i) => i.post.viewer_liked_post).map((i) => i.post.id)));
       setLoading(false);
       restoreScroll(tag ? `${FEED_TAG_SCROLL_KEY}:${tag}` : FEED_SCROLL_KEY);
       preloadOtherTabs(tag);
@@ -339,7 +342,7 @@ function FeedPageContent() {
   }, [likedPostIds]);
 
   const handleLikeReview = useCallback((reviewId: string) => {
-    if (!isPro) return;
+    if (viewerUserId === null) return; // Must be logged in (Plan 10: no Pro-only)
     const liked = likedReviewIds.has(reviewId);
     const nextLiked = !liked;
 
@@ -396,7 +399,7 @@ function FeedPageContent() {
         }))
       );
     });
-  }, [isPro, likedReviewIds]);
+  }, [viewerUserId, likedReviewIds]);
 
   useEffect(() => {
     const saveScroll = () => {
@@ -443,7 +446,7 @@ function FeedPageContent() {
                 key={p.value}
                 href={p.value === "trending" ? "/feed" : `/feed?tag=${encodeURIComponent(p.value)}`}
                 className={cn(
-                  "inline-flex shrink-0 items-center rounded-full border px-4 py-2 text-[10px] font-bold tracking-wide transition-all",
+                  "inline-flex shrink-0 items-center rounded-full border px-4 py-2 text-sm font-bold tracking-wide transition-all",
                   isActive 
                     ? "bg-primary text-primary-foreground border-primary shadow-lg scale-105"
                     : "bg-muted/80 text-muted-foreground border-border hover:bg-muted"
@@ -587,7 +590,7 @@ function FeedPageContent() {
             isPro,
             viewerUserId,
             isLiked: likedPostIds.has(item.post.id),
-            isGuest,
+            isGuest: viewerUserId === null,
             onLikePost: handleLikePost,
             onHide: (postId: string) => {
               const next = new Set(hiddenIds);

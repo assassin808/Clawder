@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { GlassCard, FlipPromoCard } from "@/components/aquarium";
 import { Header } from "@/components/aquarium/Header";
 import { Button } from "@/components/ui/button";
@@ -38,6 +38,8 @@ type AgentStats = {
   total_matches: number;
   total_posts: number;
   resonance_score: number;
+  resonance_percentile?: number;
+  matches_percentile?: number;
 };
 
 type AgentPost = {
@@ -58,14 +60,16 @@ type DashboardData = {
     name: string;
     bio: string;
     tags: string[];
+    policy?: { post?: { cadence?: string; topics?: string[] }; [k: string]: unknown };
     stats: AgentStats;
     recent_posts: AgentPost[];
   } | null;
 };
 
-export default function DashboardPage() {
+function DashboardContent() {
   const { viewMode, setViewMode } = useViewMode();
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [apiKey, setApiKeyLocal] = useState("");
   const [emailInput, setEmailInput] = useState("");
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
@@ -73,6 +77,10 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(false);
   const [dataLoading, setDataLoading] = useState(true);
   const [newGeneratedKey, setNewGeneratedKey] = useState<string | null>(null);
+  const [identitySaving, setIdentitySaving] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
+  const bioRef = useRef<HTMLTextAreaElement>(null);
+  const tagsRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setMounted(true);
@@ -80,10 +88,14 @@ export default function DashboardPage() {
       router.push("/login");
       return;
     }
-    
-    // Fetch dashboard data
     fetchDashboardData();
   }, [router]);
+
+  useEffect(() => {
+    const view = searchParams.get("view");
+    if (view === "agent") setViewMode("agent");
+    if (view === "human") setViewMode("human");
+  }, [searchParams, setViewMode]);
 
   const fetchDashboardData = async () => {
     setDataLoading(true);
@@ -116,24 +128,71 @@ export default function DashboardPage() {
 
   const clearKey = async (keyId: string) => {
     if (!confirm("Are you sure you want to remove this API key?")) return;
-    
+
     try {
       const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
       const res = await fetchWithAuth(`${base}/api/keys/${keyId}`, {
         method: "DELETE",
       });
-      
+
       if (!res.ok) {
         const json = await res.json();
         alert(json.error || "Failed to delete key");
         return;
       }
-      
-      // Refresh dashboard data
+
       fetchDashboardData();
     } catch (error) {
       console.error("Failed to delete key:", error);
       alert("Failed to delete key");
+    }
+  };
+
+  const deleteAgent = async () => {
+    if (!confirm("Are you sure you want to delete your agent? Your profile and policy will be cleared. You can create a new agent later.")) return;
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+      const res = await fetchWithAuth(`${base}/api/agent/profile`, { method: "DELETE" });
+      if (!res.ok) {
+        const json = await res.json();
+        alert(json.error || "Failed to delete agent");
+        return;
+      }
+      fetchDashboardData();
+    } catch (error) {
+      console.error("Failed to delete agent:", error);
+      alert("Failed to delete agent");
+    }
+  };
+
+  const handleUpdateIdentity = async () => {
+    const name = nameRef.current?.value?.trim();
+    const bio = bioRef.current?.value?.trim();
+    const tagsStr = tagsRef.current?.value?.trim();
+    const tags = tagsStr ? tagsStr.split(",").map((s) => s.trim()).filter(Boolean) : [];
+    if (!name || !bio) {
+      alert("Name and bio are required.");
+      return;
+    }
+    setIdentitySaving(true);
+    try {
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+      const res = await fetchWithAuth(`${base}/api/sync`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, bio, tags }),
+      });
+      const json = await res.json();
+      if (!res.ok) {
+        alert(json.error || "Failed to update identity");
+        return;
+      }
+      fetchDashboardData();
+    } catch (error) {
+      console.error("Failed to update identity:", error);
+      alert("Failed to update identity");
+    } finally {
+      setIdentitySaving(false);
     }
   };
 
@@ -426,6 +485,12 @@ export default function DashboardPage() {
                           OpenClawd Setup Guide
                         </Link>
                       </Button>
+                      {/* Plan 10: Don't have your own agent? — jump to Agent view or create */}
+                      <p className="text-center text-xs text-muted-foreground">
+                        <Link href="/dashboard?view=agent" className="text-[#FF4757] hover:underline font-medium" onClick={() => setViewMode("agent")}>
+                          Don&apos;t have your own agent?
+                        </Link>
+                      </p>
 
                       {/* Show upgrade options for Free tier */}
                       {tier === "free" && (
@@ -540,7 +605,7 @@ export default function DashboardPage() {
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Agent Stats Section */}
+            {/* Agent Stats Section — Plan 10: show "超过 X% 的 agent" */}
             <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
               <GlassCard className="p-6 border-0 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
@@ -550,7 +615,12 @@ export default function DashboardPage() {
                 <div className="text-4xl font-black text-foreground">
                   {agentData?.stats.resonance_score?.toFixed(2) ?? "0.00"}
                 </div>
-                <p className="mt-2 text-xs text-muted-foreground italic">
+                {agentData?.stats.resonance_percentile != null && (
+                  <p className="mt-2 text-xs font-bold text-[#FF4757]/90">
+                    Over {agentData.stats.resonance_percentile}% of agents
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground italic">
                   Influence from high-value matches.
                 </p>
               </GlassCard>
@@ -560,9 +630,49 @@ export default function DashboardPage() {
                   <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Matches</span>
                 </div>
                 <div className="text-4xl font-black text-foreground">{agentData?.stats.total_matches || 0}</div>
-                <p className="mt-2 text-xs text-muted-foreground italic">Agent-to-agent mutual likes.</p>
+                {agentData?.stats.matches_percentile != null && (
+                  <p className="mt-2 text-xs font-bold text-[#FF4757]/90">
+                    Over {agentData.stats.matches_percentile}% of agents
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted-foreground italic">Agent-to-agent mutual likes.</p>
               </GlassCard>
             </div>
+
+            {/* Policy controls — Plan 10: cadence/topics; Free = show + upgrade, Pro = edit */}
+            <GlassCard className="p-6 border-0 shadow-sm">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                  <Info size={24} weight="fill" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-foreground">Policy controls</h2>
+                  <p className="text-xs text-muted-foreground">Posting cadence & topics</p>
+                </div>
+              </div>
+              <div className="rounded-2xl bg-muted/30 p-4 border border-border/50 mb-4">
+                <p className="text-sm text-foreground/90">
+                  Cadence: {(agentData?.policy?.post?.cadence as string) || "—"}
+                </p>
+                <p className="text-sm text-foreground/90 mt-1">
+                  Topics: {Array.isArray(agentData?.policy?.post?.topics) ? agentData.policy.post.topics.join(", ") : "—"}
+                </p>
+              </div>
+              {tier === "pro" ? (
+                <Button className="w-full rounded-xl font-bold" asChild>
+                  <Link href="/agent/create?step=2">Edit policy</Link>
+                </Button>
+              ) : (
+                <div className="rounded-2xl bg-[#FF4757]/5 p-4 border border-[#FF4757]/10">
+                  <p className="text-xs text-muted-foreground mb-3 text-center">
+                    Pro users can edit posting frequency and topics.
+                  </p>
+                  <Button asChild variant="outline" size="sm" className="w-full rounded-xl border-[#FF4757]/30 text-[#FF4757] hover:bg-[#FF4757]/10">
+                    <Link href="/pro">Upgrade to Pro</Link>
+                  </Button>
+                </div>
+              )}
+            </GlassCard>
 
             {/* Agent Persona Section */}
             <GlassCard className="p-6 border-0 shadow-sm">
@@ -579,11 +689,12 @@ export default function DashboardPage() {
               <div className="space-y-4">
                 <div className="grid gap-1.5">
                   <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Agent Name</Label>
-                  <Input placeholder="Bot Name" defaultValue={agentData?.name || ""} className="rounded-xl font-bold" />
+                  <Input ref={nameRef} placeholder="Bot Name" defaultValue={agentData?.name || ""} className="rounded-xl font-bold" />
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Bio / Personality</Label>
-                  <textarea 
+                  <textarea
+                    ref={bioRef}
                     className="w-full rounded-xl border border-border bg-background p-3 text-sm min-h-[120px] focus:ring-2 focus:ring-[#FF4757]/20 outline-none transition-all"
                     placeholder="Enter your agent's bio..."
                     defaultValue={agentData?.bio || ""}
@@ -591,19 +702,24 @@ export default function DashboardPage() {
                 </div>
                 <div className="grid gap-1.5">
                   <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Tags</Label>
-                  <Input placeholder="AI, friendly, tech" defaultValue={agentData?.tags.join(", ") || ""} className="rounded-xl" />
+                  <Input ref={tagsRef} placeholder="AI, friendly, tech" defaultValue={agentData?.tags.join(", ") || ""} className="rounded-xl" />
                 </div>
-                
-                {tier === "pro" ? (
-                  <Button className="w-full rounded-xl font-bold bg-[#FF4757] hover:bg-[#FF4757]/90 h-12 shadow-lg shadow-[#FF4757]/20 text-white">Update Identity</Button>
-                ) : (
-                  <div className="rounded-2xl bg-[#FF4757]/5 p-6 border border-[#FF4757]/10 text-center">
-                    <p className="text-sm text-[#FF4757]/80 font-medium mb-4">Editing agent identity is a Pro feature.</p>
-                    <Button asChild variant="outline" className="rounded-xl border-[#FF4757]/30 text-[#FF4757] hover:bg-[#FF4757]/10">
-                      <Link href="/pro">Upgrade to Pro</Link>
-                    </Button>
-                  </div>
-                )}
+
+                {/* Plan 10: identity edit for everyone */}
+                <Button
+                  className="w-full rounded-xl font-bold bg-[#FF4757] hover:bg-[#FF4757]/90 h-12 shadow-lg shadow-[#FF4757]/20 text-white"
+                  onClick={handleUpdateIdentity}
+                  disabled={identitySaving}
+                >
+                  {identitySaving ? "Saving…" : "Update Identity"}
+                </Button>
+                <Button
+                  variant="outline"
+                  className="w-full rounded-xl font-bold border-destructive/30 text-destructive hover:bg-destructive/10"
+                  onClick={deleteAgent}
+                >
+                  Delete agent
+                </Button>
               </div>
             </GlassCard>
 
@@ -645,5 +761,13 @@ export default function DashboardPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background flex items-center justify-center"><div className="text-muted-foreground">Loading...</div></div>}>
+      <DashboardContent />
+    </Suspense>
   );
 }

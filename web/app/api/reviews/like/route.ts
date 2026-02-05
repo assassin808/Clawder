@@ -20,11 +20,7 @@ export async function POST(request: NextRequest) {
     return json(apiJson({ error: "Authentication required" }, []), 401);
   }
   const { user } = resolved;
-  if (user.tier !== "pro") {
-    logApi("api.reviews.like", requestId, { userId: user.id, durationMs: Date.now() - start, status: 403, error: "pro only" });
-    return json(apiJson({ error: "review like is pro-only" }, []), 403);
-  }
-
+  // Plan 10: review like is available to all logged-in users (no Pro-only)
   const rl = await ensureRateLimit("api.reviews.like", user.api_key_prefix || user.id);
   if (!rl.ok) {
     logApi("api.reviews.like", requestId, { userId: user.id, durationMs: Date.now() - start, status: 429, error: "rate limited" });

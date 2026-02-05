@@ -16,7 +16,8 @@ export type FeedPost = {
   score: number;
   reviews_count: number;
   likes_count: number; // Agent likes from post_interactions
-  human_likes_count?: number; // Human likes from post_likes (NEW)
+  human_likes_count?: number; // Human likes from post_likes
+  viewer_liked_post?: boolean; // Current viewer has liked this post
   created_at: string;
   updated_at: string;
 };
@@ -65,12 +66,6 @@ function pickBadge(tags: string[]): PosterBadge | undefined {
   if (t.includes("match") || t.includes("love")) return "Users";
   if (t.includes("roast") || t.includes("pass")) return "Skull";
   return "Sparkle";
-}
-
-function hash(str: string): number {
-  let h = 0;
-  for (let i = 0; i < str.length; i++) h = (h * 31 + str.charCodeAt(i)) >>> 0;
-  return h;
 }
 
 export const FEED_SAVED_KEY = "feed:saved";
@@ -138,19 +133,17 @@ export function FeedCard({
   const reviews = item.live_reviews ?? item.featured_reviews ?? [];
   const subtitle = author.name; 
   const badge = pickBadge([...(post.tags ?? []), ...(author.tags ?? [])]);
-  const cardHref = `/post/${post.id}`; 
-  
-  // Generate simulated human likes: agent_likes ± random (0 to agent_likes/2)
-  // Use post.id hash to ensure consistent random value per post
-  const postHash = hash(post.id);
-  const maxVariance = Math.max(1, Math.floor(post.likes_count / 2));
-  const variance = (postHash % (maxVariance * 2 + 1)) - maxVariance; // Range: -maxVariance to +maxVariance
-  const simulatedHumanLikes = Math.max(0, post.likes_count + variance);
-  const humanLikesCount = post.human_likes_count ?? simulatedHumanLikes;
+  const cardHref = `/post/${post.id}`;
+  const loginHref = `/login?next=${encodeURIComponent(cardHref)}`;
+  // Guest can open post detail (browse post, blurred comments); CTA "Login to see full roast" links to login
+  const href = cardHref;
+
+  // Same data source as post detail: agent = likes_count, human = human_likes_count (no simulation)
+  const humanLikesCount = post.human_likes_count ?? 0;
 
   return (
     <div className="block break-inside-avoid mb-4">
-      <Link href={cardHref} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
+      <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
         <GlassCard as="article" className="overflow-hidden border-0 relative group">
           {/* Layer 1: Poster + Corner Counts (Plan-8 D3) */}
           <div className="relative aspect-[4/5] w-full overflow-hidden">
@@ -198,9 +191,7 @@ export function FeedCard({
                   key={`author-${t}`}
                   className={cn(
                     "rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide",
-                    i % 3 === 0 && "bg-[#FF4757]/15 text-[#FF4757]",
-                    i % 3 === 1 && "bg-[#FF4757]/15 text-[#FF4757]",
-                    i % 3 === 2 && "bg-[#FF4757]/15 text-[#FF4757]"
+                    "bg-[#FF4757]/20 text-[#FF4757] border border-[#FF4757]/30"
                   )}
                 >
                   #{t}
@@ -296,9 +287,21 @@ export function FeedCard({
               </div>
             )}
             {(!isPro || !viewerUserId) && reviews.length > 0 && (
-              <p className="mt-2 text-center text-[10px] font-bold text-[#FF4757] tracking-wide opacity-80">
-                {!viewerUserId ? PAYWALL_CTA_GUEST : !isPro ? PAYWALL_CTA_PRO : ""}
-              </p>
+              <div className="mt-2 text-center text-[10px] font-bold text-[#FF4757] tracking-wide opacity-80">
+                {!viewerUserId ? (
+                  <Link
+                    href={loginHref}
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:underline underline-offset-2"
+                  >
+                    {PAYWALL_CTA_GUEST}
+                  </Link>
+                ) : !isPro ? (
+                  PAYWALL_CTA_PRO
+                ) : (
+                  ""
+                )}
+              </div>
             )}
           </div>
         </GlassCard>
