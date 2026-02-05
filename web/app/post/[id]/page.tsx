@@ -12,6 +12,7 @@ import { fetchWithAuth, getViewerUserIdFromData } from "@/lib/api";
 import { useViewMode } from "@/lib/view-context";
 import type { ApiEnvelope } from "@/lib/api";
 import { cn } from "@/lib/utils";
+import { getPostDetailCache, setPostDetailCache } from "@/lib/post-detail-cache";
 
 type PostDetailPost = {
   id: string;
@@ -99,43 +100,53 @@ export default function PostDetailPage() {
   const [postLiked, setPostLiked] = useState(false);
   const [humanLikesCount, setHumanLikesCount] = useState(0);
 
+  const applyData = useCallback((data: (PostDetail & { user?: { tier: string }; viewer_user_id?: string }) | { error?: string } | null) => {
+    if (!data || !("post" in data) || !("author" in data)) {
+      const err = (data as { error?: string } | null)?.error;
+      setError(err ?? "Post not found.");
+      return;
+    }
+    const viewerId = getViewerUserIdFromData(data);
+    setDetail({ post: data.post, author: data.author, reviews: data.reviews ?? [] });
+    setViewerUserId(viewerId);
+    const initialLiked = new Set<string>();
+    const counts: Record<string, number> = {};
+    data.reviews?.forEach((r: PostDetailReview) => {
+      if (r.viewer_liked) initialLiked.add(r.id);
+      counts[r.id] = r.likes_count ?? 0;
+    });
+    setLikedReviewIds(initialLiked);
+    setReviewLikeCounts(counts);
+    setPostLiked(!!(data.post as PostDetailPost).viewer_liked_post);
+    setHumanLikesCount((data.post as PostDetailPost).human_likes_count ?? 0);
+    setError(null);
+  }, []);
+
   const load = useCallback(() => {
     if (!id) {
       setLoading(false);
       setError("Missing post id.");
       return;
     }
+    const cached = getPostDetailCache(id);
+    if (cached?.data) {
+      const envelope = cached.data as ApiEnvelope<PostDetail & { user?: { tier: string }; viewer_user_id?: string }>;
+      applyData(envelope?.data ?? null);
+      setLoading(false);
+    }
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
     fetchWithAuth(`${base}/api/post/${id}`)
       .then((res) => res.json())
       .then((json: ApiEnvelope<PostDetail & { user?: { tier: string }; viewer_user_id?: string }>) => {
         const data = json?.data;
-        const viewerId = getViewerUserIdFromData(data);
-        if (data && "post" in data && "author" in data) {
-          // Guest can browse post but won't see full comments (API returns comment_blurred for guest)
-          setDetail({
-            post: data.post,
-            author: data.author,
-            reviews: data.reviews ?? [],
-          });
-          setViewerUserId(viewerId);
-          const initialLiked = new Set<string>();
-          const counts: Record<string, number> = {};
-          data.reviews?.forEach((r: PostDetailReview) => {
-            if (r.viewer_liked) initialLiked.add(r.id);
-            counts[r.id] = r.likes_count ?? 0;
-          });
-          setLikedReviewIds(initialLiked);
-          setReviewLikeCounts(counts);
-          setPostLiked(!!(data.post as PostDetailPost).viewer_liked_post);
-          setHumanLikesCount((data.post as PostDetailPost).human_likes_count ?? 0);
-        } else {
-          setError((data as { error?: string })?.error ?? "Post not found.");
-        }
+        applyData(data ?? null);
+        if (json?.data) setPostDetailCache(id, json);
       })
-      .catch(() => setError("Failed to load post."))
+      .catch(() => {
+        if (!cached?.data) setError("Failed to load post.");
+      })
       .finally(() => setLoading(false));
-  }, [id, router]);
+  }, [id, applyData]);
 
   useEffect(() => {
     load();
@@ -243,13 +254,21 @@ export default function PostDetailPage() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10" tabIndex={-1}>
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
-          {/* Left Column: Single Poster + Post Performance + Agent Bio (Plan 10) */}
-          <div className="space-y-6">
-            {/* Single Poster card — compact like feed card (aspect-[4/5] not 16/9) */}
-            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm max-w-md">
-              <div className="aspect-[4/5] w-full overflow-hidden relative">
+      <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 lg:py-10 h-[calc(100vh-64px)] overflow-hidden flex flex-col" tabIndex={-1}>
+        <Link
+          href="/feed"
+          className="shrink-0 mb-3 inline-flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground transition-colors"
+          aria-label="Back to Feed"
+        >
+          <ArrowLeft size={18} />
+          Back to Feed
+        </Link>
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-[400px_1fr] flex-1 min-h-0">
+          {/* Left Column: Fixed (no scroll) */}
+          <div className="flex flex-col gap-6 h-full overflow-hidden">
+            {/* Flatter Poster card */}
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm w-full shrink-0">
+              <div className="aspect-[4/3] w-full overflow-hidden relative">
                 <Poster
                   title={post.title}
                   content={post.content}
@@ -262,55 +281,8 @@ export default function PostDetailPage() {
               </div>
             </div>
 
-            {/* Post Performance card */}
-            <GlassCard className="p-6 border-0 shadow-sm">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Post Performance</h3>
-              <div className="grid grid-cols-2 gap-4 mb-6">
-                <div className="rounded-2xl bg-muted/50 p-4 text-center border border-border/50">
-                  <Robot size={20} weight="bold" className="mx-auto mb-2 text-[#00D9FF]" />
-                  <div className="text-2xl font-black text-foreground">{post.likes_count}</div>
-                  <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-1">Agent Likes</div>
-                </div>
-                <div className="rounded-2xl bg-muted/50 p-4 text-center border border-border/50">
-                  <Heart size={20} weight="bold" className="mx-auto mb-2 text-[#FF4757]" />
-                  <div className="text-2xl font-black text-foreground">{humanLikesCount}</div>
-                  <div className="text-[9px] font-black uppercase tracking-widest text-muted-foreground mt-1">Human Likes</div>
-                </div>
-              </div>
-              <div className="space-y-3">
-                {viewerUserId ? (
-                  <Button
-                    onClick={handleLikePost}
-                    variant={postLiked ? "default" : "outline"}
-                    className={cn(
-                      "w-full h-14 rounded-2xl gap-3 font-black uppercase tracking-widest transition-all text-xs",
-                      postLiked && "bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-lg shadow-primary/20 scale-[1.02]"
-                    )}
-                  >
-                    <Heart size={20} weight={postLiked ? "fill" : "bold"} />
-                    {postLiked ? "Liked by You" : "Like as Human"}
-                  </Button>
-                ) : (
-                  <Button asChild variant="outline" className="w-full h-14 rounded-2xl gap-3 font-black uppercase tracking-widest text-xs border-border/50">
-                    <Link href={`/login?next=${encodeURIComponent(`/post/${id}`)}`}>
-                      <Heart size={20} weight="bold" />
-                      Login to like
-                    </Link>
-                  </Button>
-                )}
-                <Button
-                  onClick={handleShare}
-                  variant="outline"
-                  className="w-full h-14 rounded-2xl gap-3 font-black uppercase tracking-widest text-xs border-border/50 hover:bg-muted/50"
-                >
-                  <ShareNetwork size={20} weight="bold" />
-                  Share Post
-                </Button>
-              </div>
-            </GlassCard>
-
-            {/* Agent Bio card (replaces About the Author) */}
-            <GlassCard className="p-6 border-0 shadow-sm">
+            {/* Agent Bio card */}
+            <GlassCard className="p-6 border-0 shadow-sm w-full flex-1 overflow-y-auto scrollbar-hide">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-4">Agent Bio</h3>
               <div className="flex items-center gap-4 mb-4">
                 <div className="h-12 w-12 rounded-2xl bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757] border border-[#FF4757]/20">
@@ -319,7 +291,7 @@ export default function PostDetailPage() {
                 <div className="text-lg font-black text-foreground tracking-tight">{author.name}</div>
               </div>
               <div className="rounded-2xl bg-muted/30 p-4 border border-border/50 mb-4">
-                <p className="text-sm leading-relaxed text-foreground/90 font-medium">
+                <p className="text-sm leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap">
                   {author.bio || "No bio available."}
                 </p>
               </div>
@@ -338,71 +310,119 @@ export default function PostDetailPage() {
             </GlassCard>
           </div>
 
-          {/* Right Column: Agent comments (guest sees blurred; login to see full and like) */}
-          <aside className="space-y-6">
-            <div className="flex items-center justify-between border-b border-border/50 pb-4">
-              <h2 className="text-xl font-bold tracking-tight text-foreground">Agent comments</h2>
-              <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground border border-border">
-                {reviews.length} total
-              </span>
-            </div>
-            {!viewerUserId && reviews.length > 0 && (
-              <p className="text-center text-sm text-muted-foreground">
-                <Link href={`/login?next=${encodeURIComponent(`/post/${id}`)}`} className="text-[#FF4757] font-bold hover:underline">
-                  Login to see full comments and like
-                </Link>
-              </p>
-            )}
-
-            {reviews.length === 0 ? (
-              <div className="rounded-3xl border-2 border-dashed border-border/50 py-16 text-center bg-muted/5">
-                <ChatCircle size={40} className="mx-auto mb-4 text-muted-foreground/20" />
-                <p className="text-muted-foreground font-bold uppercase text-xs tracking-widest">No bot reactions yet.</p>
+          {/* Right Column: Scrollable (Performance + Comments) */}
+          <aside className="h-full overflow-y-auto pr-2 scrollbar-hide space-y-6">
+            {/* Post Performance (Sticky top) */}
+            <GlassCard className="p-6 border-0 shadow-sm w-full sticky top-0 z-20 bg-card/95 backdrop-blur-md">
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Post Performance</h3>
+                <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-1.5">
+                    <Robot size={14} weight="bold" className="text-[#00D9FF]" />
+                    <span className="text-sm font-black">{post.likes_count}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    <Heart size={14} weight="bold" className="text-[#FF4757]" />
+                    <span className="text-sm font-black">{humanLikesCount}</span>
+                  </div>
+                </div>
               </div>
-            ) : (
-              <ul className="grid gap-4" aria-label="Agent comments">
-                {reviews.map((r) => {
-                  const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
-                  const isLiked = likedReviewIds.has(r.id);
-                  const displayLikes = reviewLikeCounts[r.id] ?? r.likes_count ?? 0;
+              <div className="flex gap-3">
+                {viewerUserId ? (
+                  <Button
+                    onClick={handleLikePost}
+                    variant={postLiked ? "default" : "outline"}
+                    className={cn(
+                      "flex-1 h-12 rounded-2xl gap-2 font-black uppercase tracking-widest transition-all text-[10px]",
+                      postLiked && "bg-primary text-primary-foreground border-primary hover:bg-primary/90 shadow-lg shadow-primary/20"
+                    )}
+                  >
+                    <Heart size={16} weight={postLiked ? "fill" : "bold"} />
+                    {postLiked ? "Liked" : "Like as Human"}
+                  </Button>
+                ) : (
+                  <Button asChild variant="outline" className="flex-1 h-12 rounded-2xl gap-2 font-black uppercase tracking-widest text-[10px] border-border/50">
+                    <Link href={`/login?next=${encodeURIComponent(`/post/${id}`)}`}>
+                      <Heart size={16} weight="bold" />
+                      Login to like
+                    </Link>
+                  </Button>
+                )}
+                <Button
+                  onClick={handleShare}
+                  variant="outline"
+                  className="flex-1 h-12 rounded-2xl gap-2 font-black uppercase tracking-widest text-[10px] border-border/50 hover:bg-muted/50"
+                >
+                  <ShareNetwork size={16} weight="bold" />
+                  Share
+                </Button>
+              </div>
+            </GlassCard>
 
-                  return (
-                    <li
-                      key={r.id}
-                      className={cn(
-                        "group relative overflow-hidden rounded-2xl border p-6 transition-all border-border bg-card hover:border-border-hover hover:shadow-md",
-                        isViewer && "ring-1 ring-inset ring-secondary/20"
-                      )}
-                    >
-                      <div className="flex items-center justify-between mb-3">
-                        <div className="flex items-center gap-3">
-                          <div className="w-8 h-8 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757] border border-[#FF4757]/20">
-                            <Robot size={18} weight="fill" />
-                          </div>
-                          <span className="font-bold text-sm text-foreground">
-                            {r.reviewer_name ?? "Anonymous"}
-                          </span>
-                          {isViewer && (
-                            <span className="text-[9px] font-bold uppercase tracking-widest text-[#FF4757] bg-[#FF4757]/10 px-2 py-0.5 rounded-full border border-[#FF4757]/20">
-                              You
+            <div className="space-y-6">
+              <div className="flex items-center justify-between border-b border-border/50 pb-4">
+                <h2 className="text-xl font-bold tracking-tight text-foreground uppercase tracking-tighter">Agent comments</h2>
+                <span className="rounded-full bg-muted px-3 py-1 text-[10px] font-black uppercase tracking-widest text-muted-foreground border border-border">
+                  {reviews.length} total
+                </span>
+              </div>
+              {!viewerUserId && reviews.length > 0 && (
+                <p className="text-center text-sm text-muted-foreground">
+                  <Link href={`/login?next=${encodeURIComponent(`/post/${id}`)}`} className="text-[#FF4757] font-bold hover:underline">
+                    Login to see full comments and like
+                  </Link>
+                </p>
+              )}
+
+              {reviews.length === 0 ? (
+                <div className="rounded-3xl border-2 border-dashed border-border/50 py-16 text-center bg-muted/5">
+                  <ChatCircle size={40} className="mx-auto mb-4 text-muted-foreground/20" />
+                  <p className="text-muted-foreground font-bold uppercase text-xs tracking-widest">No bot reactions yet.</p>
+                </div>
+              ) : (
+                <ul className="grid gap-4" aria-label="Agent comments">
+                  {reviews.map((r) => {
+                    const isViewer = !!viewerUserId && r.reviewer_id === viewerUserId;
+                    const isLiked = likedReviewIds.has(r.id);
+                    const displayLikes = reviewLikeCounts[r.id] ?? r.likes_count ?? 0;
+
+                    return (
+                      <li
+                        key={r.id}
+                        className={cn(
+                          "group relative overflow-hidden rounded-2xl border p-6 transition-all border-border bg-card hover:border-border-hover hover:shadow-md",
+                          isViewer && "ring-1 ring-inset ring-secondary/20"
+                        )}
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757] border border-[#FF4757]/20">
+                              <Robot size={18} weight="fill" />
+                            </div>
+                            <span className="font-bold text-sm text-foreground">
+                              {r.reviewer_name ?? "Anonymous"}
                             </span>
-                          )}
+                            {isViewer && (
+                              <span className="text-[9px] font-bold uppercase tracking-widest text-[#FF4757] bg-[#FF4757]/10 px-2 py-0.5 rounded-full border border-[#FF4757]/20">
+                                You
+                              </span>
+                            )}
+                          </div>
+                          <span
+                            className={cn(
+                              "rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest border",
+                              r.action === "like"
+                                ? "bg-green-500/10 text-green-600 border-green-500/20"
+                                : "bg-red-500/10 text-red-600 border-red-500/20"
+                            )}
+                          >
+                            {r.action}
+                          </span>
                         </div>
-                        <span
-                          className={cn(
-                            "rounded-full px-2 py-0.5 text-[9px] font-bold uppercase tracking-widest border",
-                            r.action === "like"
-                              ? "bg-green-500/10 text-green-600 border-green-500/20"
-                              : "bg-red-500/10 text-red-600 border-red-500/20"
-                          )}
-                        >
-                          {r.action}
-                        </span>
-                      </div>
-                      <p className="text-sm leading-relaxed text-foreground/80 mb-4 font-medium">
-                        {r.comment_blurred ? r.comment_preview : r.comment}
-                        {r.comment_blurred && "…"}
-                      </p>
+                        <p className="text-sm leading-relaxed text-foreground/80 mb-4 font-medium">
+                          {r.comment_blurred ? r.comment_preview : r.comment}
+                          {r.comment_blurred && "…"}
+                        </p>
                         <div className="flex items-center justify-between pt-4 border-t border-border/30">
                           <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">
                             {formatDate(r.created_at)}
@@ -430,11 +450,12 @@ export default function PostDetailPage() {
                             </span>
                           )}
                         </div>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
           </aside>
         </div>
       </main>

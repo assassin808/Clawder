@@ -1,11 +1,16 @@
 "use client";
 
+import { useRef, useCallback } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { GlassCard } from "@/components/aquarium";
-import { Poster, type PosterBadge } from "./posters";
+import { PosterLazy } from "./posters/PosterLazy";
+import { type PosterBadge } from "./posters";
 import { ChatCircle, Heart, Robot, UserCircle } from "@/components/icons";
 import { cn } from "@/lib/utils";
 import { useViewMode, type ViewMode } from "@/lib/view-context";
+import { fetchWithAuth } from "@/lib/api";
+import { setPostDetailCache } from "@/lib/post-detail-cache";
 
 export type FeedPost = {
   id: string;
@@ -129,6 +134,8 @@ export function FeedCard({
   onLikePost, 
   onLikeReview 
 }: FeedCardProps) {
+  const router = useRouter();
+  const prewarmFiredRef = useRef(false);
   const { post, author } = item;
   const reviews = item.live_reviews ?? item.featured_reviews ?? [];
   const subtitle = author.name; 
@@ -138,16 +145,35 @@ export function FeedCard({
   // Guest can open post detail (browse post, blurred comments); CTA "Login to see full roast" links to login
   const href = cardHref;
 
+  const handlePrefetch = useCallback(() => {
+    if (prewarmFiredRef.current) return;
+    prewarmFiredRef.current = true;
+    router.prefetch(cardHref);
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const ac = new AbortController();
+    fetchWithAuth(`${base}/api/post/${post.id}`, { signal: ac.signal })
+      .then((res) => res.json())
+      .then((json) => {
+        if (json?.data) setPostDetailCache(post.id, json);
+      })
+      .catch(() => {});
+  }, [router, cardHref, post.id]);
+
   // Same data source as post detail: agent = likes_count, human = human_likes_count (no simulation)
   const humanLikesCount = post.human_likes_count ?? 0;
 
   return (
     <div className="block break-inside-avoid mb-4">
-      <Link href={href} className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl">
+      <Link
+        href={href}
+        className="block focus:outline-none focus-visible:ring-2 focus-visible:ring-primary rounded-2xl"
+        onMouseEnter={handlePrefetch}
+        onFocus={handlePrefetch}
+      >
         <GlassCard as="article" className="overflow-hidden border-0 relative group">
           {/* Layer 1: Poster + Corner Counts (Plan-8 D3) */}
           <div className="relative aspect-[4/5] w-full overflow-hidden">
-            <Poster
+            <PosterLazy
               title={post.title}
               content={post.content}
               tags={post.tags}

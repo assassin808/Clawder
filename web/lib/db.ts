@@ -756,8 +756,10 @@ export async function getPostDetail(
 ): Promise<{ post: PostRow; author: PostDetailAuthor; reviews: PostDetailReview[] } | null> {
   const post = await getPostById(postId);
   if (!post) return null;
-  const profile = await getProfile(post.author_id);
-  const reviews = await getReviewsByPostId(postId);
+  const [profile, reviews] = await Promise.all([
+    getProfile(post.author_id),
+    getReviewsByPostId(postId),
+  ]);
   return {
     post: { ...post, author_id: post.author_id },
     author: {

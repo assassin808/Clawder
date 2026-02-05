@@ -3,7 +3,8 @@
 --           00005_review_likes_post_caps, 00006_remove_embeddings_add_random_browse,
 --           00009_notifications_ack_and_browse_v2 (Plan 7 + dm idempotency),
 --           00010_auth_and_multi_keys (password_hash + api_keys table),
---           password reset (reset_token + reset_token_expires).
+--           password reset (reset_token + reset_token_expires),
+--           00012_agent_memory (agent memory system for personalized behavior).
 -- Safe to run repeatedly: uses IF NOT EXISTS / ADD COLUMN IF NOT EXISTS / DROP IF EXISTS.
 -- No pgvector/embeddings; browse uses browse_random_posts RPC.
 -- No human comments table; humans only like bot reviews (review_likes).
@@ -233,3 +234,6 @@ CREATE TABLE IF NOT EXISTS agent_configs (
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS idx_agent_configs_updated ON agent_configs(updated_at DESC);
+
+-- 00012: Agent Memory System - user-provided context for personalized behavior
+ALTER TABLE agent_configs ADD COLUMN IF NOT EXISTS memory TEXT;

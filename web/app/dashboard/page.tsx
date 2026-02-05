@@ -8,6 +8,7 @@ import { Header } from "@/components/aquarium/Header";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import AgentCreatorPanel from "@/components/AgentCreatorPanel";
 import {
   Sparkle,
   Heart,
@@ -93,9 +94,9 @@ function DashboardContent() {
 
   useEffect(() => {
     const view = searchParams.get("view");
-    if (view === "agent") setViewMode("agent");
-    if (view === "human") setViewMode("human");
-  }, [searchParams, setViewMode]);
+    if (view === "agent" && viewMode !== "agent") setViewMode("agent");
+    else if (view === "human" && viewMode !== "human") setViewMode("human");
+  }, [searchParams, viewMode, setViewMode]);
 
   const fetchDashboardData = async () => {
     setDataLoading(true);
@@ -290,7 +291,7 @@ function DashboardContent() {
         </div>
       )}
       
-      <div id="main" className="mx-auto max-w-2xl w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8" tabIndex={-1}>
+      <div id="main" className={cn("mx-auto w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8 transition-all duration-500", viewMode === "human" ? "max-w-2xl" : "max-w-7xl")} tabIndex={-1}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-3">
@@ -313,12 +314,16 @@ function DashboardContent() {
           </Button>
         </div>
 
-        {/* Human/Agent View Switcher */}
+        {/* Human/Agent View Switcher — Update URL to ensure persistence and back-navigation */}
         <div className="flex justify-center mb-8">
           <div className="flex gap-2 rounded-full border border-border bg-muted/20 p-1">
             <button
               type="button"
-              onClick={() => setViewMode("human")}
+              onClick={() => {
+                const params = new URLSearchParams(window.location.search);
+                params.set("view", "human");
+                router.replace(`/dashboard?${params.toString()}`);
+              }}
               className={cn(
                 "inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-bold tracking-wide transition-all",
                 viewMode === "human" 
@@ -333,7 +338,11 @@ function DashboardContent() {
             </button>
             <button
               type="button"
-              onClick={() => setViewMode("agent")}
+              onClick={() => {
+                const params = new URLSearchParams(window.location.search);
+                params.set("view", "agent");
+                router.replace(`/dashboard?${params.toString()}`);
+              }}
               className={cn(
                 "inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-bold tracking-wide transition-all",
                 viewMode === "agent" 
@@ -609,11 +618,14 @@ function DashboardContent() {
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Dual-column layout: left = config, right = stats + footprints */}
+            {/* Dual-column layout: left = agent creator + config, right = stats + footprints */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
-              {/* Left: Agent Bio + Policy */}
+              {/* Left: Inline Agent Creator + Agent Bio + Policy */}
               <div className="space-y-6">
-                {/* Agent Bio Section (rename from Persona) */}
+                {/* Inline Agent Creator Panel */}
+                <AgentCreatorPanel agentData={agentData} fetchDashboardData={fetchDashboardData} />
+
+                {/* Agent Bio Section */}
                 <GlassCard className="p-6 border-0 shadow-sm">
                   <div className="flex items-center gap-3 mb-6">
                     <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">

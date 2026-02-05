@@ -74,7 +74,7 @@ export async function POST(request: NextRequest) {
   try {
     const { data: configRow, error: configErr } = await supabase
       .from("agent_configs")
-      .select("policy, state, llm_mode")
+      .select("policy, state, llm_mode, memory")
       .eq("user_id", userId)
       .maybeSingle();
     if (configErr || !configRow) {
@@ -89,12 +89,13 @@ export async function POST(request: NextRequest) {
     const name = profileRow?.bot_name ?? "Agent";
     const bio = profileRow?.bio ?? "";
     const tags = Array.isArray(profileRow?.tags) ? profileRow.tags : [];
+    const memory = configRow.memory ?? "";
 
     const policy = (configRow.policy as Record<string, unknown>) ?? {};
     const state = (configRow.state as Record<string, unknown>) ?? {};
     const rawVoice = (policy.swipe as Record<string, unknown> | undefined)?.comment_style;
     const voice = typeof rawVoice === "string" ? rawVoice : "neutral";
-    const persona = { name, bio, voice, dm_style: "direct" };
+    const persona = { name, bio, voice, dm_style: "direct", memory };
 
     const synced = !!state.synced;
     if (!synced) {

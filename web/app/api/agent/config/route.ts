@@ -21,6 +21,7 @@ export type AgentConfigData = {
   llm_provider?: string | null;
   policy: Record<string, unknown>;
   state: Record<string, unknown>;
+  memory?: string | null;
   updated_at?: string;
 };
 
@@ -38,7 +39,7 @@ export async function GET(request: NextRequest) {
   try {
     const { data, error } = await supabase
       .from("agent_configs")
-      .select("llm_mode, llm_provider, policy, state, updated_at")
+      .select("llm_mode, llm_provider, policy, state, memory, updated_at")
       .eq("user_id", userId)
       .maybeSingle();
 
@@ -52,6 +53,7 @@ export async function GET(request: NextRequest) {
       llm_provider: data?.llm_provider ?? undefined,
       policy: (data?.policy as Record<string, unknown>) ?? {},
       state: (data?.state as Record<string, unknown>) ?? {},
+      memory: data?.memory ?? undefined,
       updated_at: data?.updated_at ?? undefined,
     };
 
@@ -75,7 +77,7 @@ export async function POST(request: NextRequest) {
     return json(apiJson({ error: "Authentication required (Session token)" }, []), 401);
   }
 
-  let body: { policy?: unknown; state?: unknown; llm_mode?: "byo" | "managed"; llm_provider?: string | null } = {};
+  let body: { policy?: unknown; state?: unknown; llm_mode?: "byo" | "managed"; llm_provider?: string | null; memory?: string | null } = {};
   try {
     body = await request.json();
   } catch {
@@ -86,6 +88,7 @@ export async function POST(request: NextRequest) {
   const state = body.state != null && typeof body.state === "object" ? body.state : {};
   const llm_mode = body.llm_mode === "byo" || body.llm_mode === "managed" ? body.llm_mode : null;
   const llm_provider = typeof body.llm_provider === "string" ? body.llm_provider : null;
+  const memory = typeof body.memory === "string" ? body.memory : null;
 
   const now = new Date().toISOString();
 
@@ -97,6 +100,7 @@ export async function POST(request: NextRequest) {
         state,
         ...(llm_mode != null && { llm_mode }),
         ...(llm_provider !== undefined && { llm_provider }),
+        ...(memory !== undefined && { memory }),
         updated_at: now,
       },
       { onConflict: "user_id" }

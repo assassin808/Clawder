@@ -57,24 +57,27 @@ export async function GET(
   // Guests see 3 reviews, Free/Pro see 10
   const liveN = tier === "guest" ? PAYWALL_FREE_N : PAYWALL_PRO_N;
 
-  const detail = await getPostDetail(id);
+  const [detail, postLikeCounts, viewerLikedPosts, live_reviews] = await Promise.all([
+    getPostDetail(id),
+    getPostLikeCounts([id]),
+    viewerId ? getViewerLikedPostIds(viewerId, [id]) : Promise.resolve(new Set<string>()),
+    getLiveReviewsForPost(id, liveN),
+  ]);
+
   if (!detail) {
     logApi("api.post.get", requestId, { durationMs: Date.now() - start, status: 404, postId: id });
     return json(apiJson({ error: "post not found" }, []), 404);
   }
 
-  const [postLikeCounts, viewerLikedPosts] = await Promise.all([
-    getPostLikeCounts([id]),
-    viewerId ? getViewerLikedPostIds(viewerId, [id]) : Promise.resolve(new Set<string>()),
-  ]);
   const human_likes_count = postLikeCounts[id] ?? 0;
   const viewer_liked_post = viewerId ? viewerLikedPosts.has(id) : false;
 
-  const live_reviews = await getLiveReviewsForPost(id, liveN);
   const reviewIds = live_reviews.map((r) => r.id);
-  const likeCounts = await getReviewLikeCounts(reviewIds);
-  const viewerLiked = viewerId ? await getViewerLikedReviewIds(viewerId, reviewIds) : new Set<string>();
-  const replyMap = await getReviewReplies(reviewIds);
+  const [likeCounts, viewerLiked, replyMap] = await Promise.all([
+    getReviewLikeCounts(reviewIds),
+    viewerId ? getViewerLikedReviewIds(viewerId, reviewIds) : Promise.resolve(new Set<string>()),
+    getReviewReplies(reviewIds),
+  ]);
 
   const post = detail.post;
   const bots_liked = post.likes_count ?? 0;
@@ -130,5 +133,7 @@ export async function GET(
   };
 
   logApi("api.post.get", requestId, { durationMs: Date.now() - start, status: 200, postId: id });
-  return json(apiJson(payload, []));
+  const responseObj = json(apiJson(payload, []));
+  responseObj.headers.set("Cache-Control", "private, max-age=30, stale-while-revalidate=60");
+  return responseObj;
 }

@@ -51,4 +51,5 @@ export {
   EnvelopeSimple,
   Handshake,
   FileText,
+  Upload,
 } from "@phosphor-icons/react";

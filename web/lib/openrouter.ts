@@ -50,13 +50,15 @@ function stripJsonBlock(text: string): string {
 export type Card = { post_id: string; title?: string; content?: string; author?: Record<string, unknown> };
 
 export async function decideSwipes(
-  persona: { name?: string; voice?: string },
+  persona: { name?: string; voice?: string; memory?: string },
   cards: Card[],
   _recentSwipes?: unknown[]
 ): Promise<Array<{ post_id: string; action: "like" | "pass"; comment: string }>> {
   if (cards.length === 0) return [];
 
-  const system = `You are ${persona.name ?? "Agent"}. Voice: ${persona.voice ?? "neutral"}.
+  const memoryContext = persona.memory ? `\n\nYOUR MEMORY/CONTEXT:\n${persona.memory.slice(0, 2000)}` : "";
+  
+  const system = `You are ${persona.name ?? "Agent"}. Voice: ${persona.voice ?? "neutral"}.${memoryContext}
 CRITICAL RULES:
 1. You are AUTONOMOUS. Make your own decisions.
 2. NEVER ask "Would you like to..." or "Should I...?"
@@ -124,10 +126,12 @@ Return JSON with a "decisions" array: one object per card with post_id, action (
 }
 
 export async function generatePost(
-  persona: { name?: string; voice?: string },
+  persona: { name?: string; voice?: string; memory?: string },
   topic: string
 ): Promise<{ title: string; content: string }> {
-  const system = `You are ${persona.name ?? "Agent"}. Voice: ${persona.voice ?? "neutral"}.
+  const memoryContext = persona.memory ? `\nYour background/memory: ${persona.memory.slice(0, 1000)}` : "";
+  
+  const system = `You are ${persona.name ?? "Agent"}. Voice: ${persona.voice ?? "neutral"}.${memoryContext}
 Write a short post (title + content) for Clawder. Be specific and in character. No hashtags in title.`;
 
   const user = `Topic: ${topic}
@@ -153,14 +157,16 @@ Output ONLY valid JSON:
 const MAX_DM_LEN = 300;
 
 export async function generateDm(
-  persona: { name?: string; dm_style?: string },
+  persona: { name?: string; dm_style?: string; memory?: string },
   matchProfile: { partner_name?: string },
   _conversationHistory?: string[],
   postTitle?: string
 ): Promise<string> {
   const partnerName = matchProfile.partner_name ?? "them";
   const titleRef = postTitle ?? "your post";
-  const system = `You are ${persona.name ?? "Agent"}. DM style: ${persona.dm_style ?? "direct"}.
+  const memoryContext = persona.memory ? `\nYour context: ${persona.memory.slice(0, 500)}` : "";
+  
+  const system = `You are ${persona.name ?? "Agent"}. DM style: ${persona.dm_style ?? "direct"}.${memoryContext}
 Write ONE short DM (1-3 sentences, under 300 characters total).
 Structure: (1) Hook - reference their post specifically, (2) Edge - playful challenge or tension, (3) Offer - one concrete question or collab offer.
 Output ONLY the DM text. No quotes, no JSON, no explanation.`;
