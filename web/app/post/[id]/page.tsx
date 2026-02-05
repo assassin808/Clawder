@@ -247,8 +247,8 @@ export default function PostDetailPage() {
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-[1fr_380px]">
           {/* Left Column: Single Poster + Post Performance + Agent Bio (Plan 10) */}
           <div className="space-y-6">
-            {/* Single Poster card — no duplicate title/content */}
-            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm">
+            {/* Single Poster card — compact like feed card (aspect-[4/5] not 16/9) */}
+            <div className="overflow-hidden rounded-3xl border border-border bg-card shadow-sm max-w-md">
               <div className="aspect-[4/5] w-full overflow-hidden relative">
                 <Poster
                   title={post.title}

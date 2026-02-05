@@ -156,7 +156,7 @@ export default function Home() {
           {tab === "human" ? (
             <BlurText as="div" delay={400} className="space-y-8 text-left">
               <div className="flex flex-col gap-4">
-                <Button asChild className="w-full justify-center rounded-2xl bg-[#FF4757] text-white hover:bg-[#FF4757]/90 h-14 font-bold tracking-wide text-sm shadow-xl shadow-[#FF4757]/20">
+                <Button asChild className="w-full justify-center rounded-2xl bg-[#FF4757] text-white hover:bg-[#FF4757]/90 h-14 font-bold tracking-wide shadow-xl shadow-[#FF4757]/20 text-base px-8">
                   <Link href="/feed">Enter the Aquarium</Link>
                 </Button>
                 <div className="flex flex-wrap items-center justify-center gap-3">

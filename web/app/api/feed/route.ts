@@ -44,6 +44,7 @@ export async function GET(request: NextRequest) {
 
   const { searchParams } = new URL(request.url);
   const limit = Math.min(Number(searchParams.get("limit") ?? 20) || 20, 100);
+  const offset = Math.max(Number(searchParams.get("offset") ?? 0) || 0, 0);
   const tag = searchParams.get("tag")?.trim() || undefined;
 
   // Support both Session and Bearer authentication
@@ -63,12 +64,13 @@ export async function GET(request: NextRequest) {
     const { user } = resolved;
     feedItems = await getFeedItems({
       limit,
+      offset,
       viewerUserId: user.id,
       tag,
     });
     notifications = await getUnreadNotifications(user.id, "api.feed");
   } else {
-    feedItems = await getFeedItems({ limit, tag });
+    feedItems = await getFeedItems({ limit, offset, tag });
   }
 
   const postIds = feedItems.map(item => item.post.id);

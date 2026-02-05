@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
 import {
   FeedCard,
   type FeedItem,
@@ -83,6 +84,8 @@ function FeedPageContent() {
   const [feedCacheByTag, setFeedCacheByTag] = useState<Record<string, TabFeedCache>>({});
   const [justMatchedCache, setJustMatchedCache] = useState<JustMatchedCache | null>(null);
   const [hasKey, setHasKey] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
   const scrollRestoredRef = useRef(false);
   const feedCacheByTagRef = useRef(feedCacheByTag);
   const justMatchedCacheRef = useRef(justMatchedCache);
@@ -206,7 +209,7 @@ function FeedPageContent() {
     setLoading(true);
     setError(null);
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-    const q = new URLSearchParams({ limit: "20" });
+    const q = new URLSearchParams({ limit: "9" }); // Initial load: 9 items (3 rows)
     if (tag && !isJustMatched) q.set("tag", tag);
     fetchWithAuth(`${base}/api/feed?${q.toString()}`)
       .then((res) => res.json())
@@ -219,6 +222,7 @@ function FeedPageContent() {
         setItems(next);
         setIsPro(pro);
         setViewerUserId(viewer);
+        setHasMore(next.length >= 9); // If we got 9, there might be more
         // Initialize liked post IDs from API (viewer_liked_post)
         setLikedPostIds(new Set(next.filter((i) => i.post.viewer_liked_post).map((i) => i.post.id)));
         // Initialize liked review IDs from feed data
@@ -235,6 +239,41 @@ function FeedPageContent() {
       .catch(() => setError("Failed to load the feed."))
       .finally(() => setLoading(false));
   }, [tag, isJustMatched, preloadOtherTabs]);
+
+  const loadMore = useCallback(() => {
+    if (isLoadingMore || !hasMore || isJustMatched) return;
+    setIsLoadingMore(true);
+    const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    const q = new URLSearchParams({ limit: "9", offset: String(items.length) });
+    if (tag) q.set("tag", tag);
+    fetchWithAuth(`${base}/api/feed?${q.toString()}`)
+      .then((res) => res.json())
+      .then((json: ApiEnvelope<{ feed_items?: FeedItem[]; user?: { tier: string }; viewer_user_id?: string }>) => {
+        const data = json?.data;
+        const list = data?.feed_items ?? [];
+        const next = Array.isArray(list) ? list : [];
+        if (next.length < 9) setHasMore(false);
+        setItems((prev) => [...prev, ...next]);
+        // Update liked post IDs
+        setLikedPostIds((prev) => {
+          const updated = new Set(prev);
+          next.filter((i) => i.post.viewer_liked_post).forEach((i) => updated.add(i.post.id));
+          return updated;
+        });
+        // Update liked review IDs
+        setLikedReviewIds((prev) => {
+          const updated = new Set(prev);
+          next.forEach((item) => {
+            (item.live_reviews ?? item.featured_reviews ?? []).forEach((r) => {
+              if (r.viewer_liked) updated.add(r.id);
+            });
+          });
+          return updated;
+        });
+      })
+      .catch(() => {})
+      .finally(() => setIsLoadingMore(false));
+  }, [isLoadingMore, hasMore, items.length, tag, isJustMatched]);
 
   useEffect(() => {
     const restoreScroll = (scrollKey: string) => {
@@ -432,6 +471,22 @@ function FeedPageContent() {
     return () => window.removeEventListener("beforeunload", onLeave);
   }, [items, tag, isPro, viewerUserId, isJustMatched]);
 
+  // Infinite scroll: load more when scrolling near bottom
+  useEffect(() => {
+    if (isJustMatched || !hasMore) return;
+    const handleScroll = () => {
+      if (isLoadingMore) return;
+      const scrollY = window.scrollY;
+      const windowHeight = window.innerHeight;
+      const docHeight = document.documentElement.scrollHeight;
+      if (scrollY + windowHeight >= docHeight - 500) {
+        loadMore();
+      }
+    };
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
+  }, [isJustMatched, hasMore, isLoadingMore, loadMore]);
+
   return (
     <div className="min-h-screen bg-background">
       <Header />
@@ -628,6 +683,19 @@ function FeedPageContent() {
             </div>
           );
         })()}
+        
+        {/* Load more indicator */}
+        {!loading && !error && !isJustMatched && hasMore && (
+          <div className="text-center py-8">
+            {isLoadingMore ? (
+              <div className="text-sm text-muted-foreground">Loading more...</div>
+            ) : (
+              <Button variant="outline" onClick={loadMore} className="rounded-xl">
+                Load More
+              </Button>
+            )}
+          </div>
+        )}
       </main>
     </div>
   );

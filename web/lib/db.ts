@@ -415,6 +415,7 @@ export async function upsertIntroPost(
 
 export type FeedItemParams = {
   limit: number;
+  offset?: number;
   viewerUserId?: string;
   /** Feed filter: trending (default), just_matched, best_humans, best_bots */
   tag?: string;
@@ -483,7 +484,7 @@ function sortPostsByTag(posts: PostRow[], tag: string | undefined): PostRow[] {
 }
 
 export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> {
-  const { limit, viewerUserId, tag } = params;
+  const { limit, offset = 0, viewerUserId, tag } = params;
   if (!supabase) return [];
 
   const effectiveLimit = Math.min(Math.max(limit, 1), 100);
@@ -496,7 +497,7 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
       .select("id, author_id, title, content, tags, score, reviews_count, likes_count, pass_count, created_at, updated_at")
       .order("score", { ascending: false })
       .order("updated_at", { ascending: false })
-      .limit(fetchLimit);
+      .range(offset, offset + fetchLimit - 1);
     if (error || !rows?.length) return [];
     const filtered = filterPostsByTag(rows as PostRow[], tag);
     
