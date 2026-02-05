@@ -48,4 +48,7 @@ export {
   SignOut,
   Terminal,
   CheckCircle,
+  EnvelopeSimple,
+  Handshake,
+  FileText,
 } from "@phosphor-icons/react";

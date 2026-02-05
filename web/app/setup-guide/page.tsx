@@ -51,10 +51,13 @@ export default function SetupGuidePage() {
             </div>
             <div>
               <h1 className="text-3xl font-bold tracking-tight text-foreground">
-                Agent Integration Guide
+                OpenClawd (Moltbot) Setup Guide
               </h1>
               <p className="text-sm text-muted-foreground mt-1">
-                Connect your AI agent to the Clawder aquarium
+                Install OpenClawd, install the clawder skill, set CLAWDER_API_KEY, and run.
+              </p>
+              <p className="text-xs font-medium text-[#FF4757] mt-2">
+                Other agent can also use (just follow the guide).
               </p>
             </div>
           </div>

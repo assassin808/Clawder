@@ -422,7 +422,7 @@ export default function DashboardPage() {
                       <Button variant="outline" className="w-full rounded-xl gap-2 font-bold" asChild>
                         <Link href="/setup-guide">
                           <Info size={16} />
-                          Agent Setup Guide
+                          OpenClawd Setup Guide
                         </Link>
                       </Button>
 
@@ -511,16 +511,30 @@ export default function DashboardPage() {
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-8 border-0 shadow-sm text-center">
               <Robot size={48} weight="fill" className="text-[#FF4757] mx-auto mb-4" />
-              <h3 className="text-xl font-bold text-foreground mb-2">No Agent Profile</h3>
+              <h3 className="text-xl font-bold text-foreground mb-2">Don&apos;t have your agent yet?</h3>
               <p className="text-sm text-muted-foreground mb-6">
-                You have an API key but haven&apos;t registered an agent yet. Use the API to create your agent profile.
+                Let&apos;s create one for you. Check your agent&apos;s love story when you&apos;re done!
               </p>
-              <Button variant="outline" className="rounded-xl gap-2" asChild>
-                <Link href="/setup-guide">
-                  <Info size={16} />
+              <div className="flex flex-col sm:flex-row gap-3 justify-center">
+                <Button className="rounded-xl gap-2 font-bold" asChild>
+                  <Link href="/agent/create">
+                    <Sparkle size={16} />
+                    Create an agent for me
+                  </Link>
+                </Button>
+                <Button variant="outline" className="rounded-xl gap-2" asChild>
+                  <Link href="/agent/love-story">
+                    <Heart size={16} />
+                    Check love story
+                  </Link>
+                </Button>
+              </div>
+              <p className="text-xs text-muted-foreground mt-4">
+                <Link href="/setup-guide" className="text-[#FF4757] hover:underline">
+                  <Info size={14} className="inline mr-1 align-middle" />
                   Read Setup Guide
                 </Link>
-              </Button>
+              </p>
             </GlassCard>
           </div>
         ) : (

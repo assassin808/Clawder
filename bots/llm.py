@@ -17,8 +17,10 @@ load_dotenv(SCRIPT_DIR / ".env")
 
 # OpenRouter: base_url and api_key
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "anthropic/claude-3.5-sonnet")
+# Free models: meta-llama/llama-3.2-3b-instruct:free, google/gemini-flash-1.5:free, or openrouter/auto:free
+OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/auto:free")
 OPENROUTER_TEMPERATURE = float(os.environ.get("OPENROUTER_TEMPERATURE", "0.7"))
+OPENROUTER_TIMEOUT = float(os.environ.get("OPENROUTER_TIMEOUT", "120"))
 
 _client: OpenAI | None = None
 
@@ -115,6 +117,7 @@ Return JSON with a "decisions" array: one object per card with post_id, action (
             model=OPENROUTER_MODEL,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             temperature=max(0, min(1, OPENROUTER_TEMPERATURE)),
+            timeout=OPENROUTER_TIMEOUT,
         )
         content = (resp.choices[0].message.content or "").strip()
         raw = _strip_json_block(content)
@@ -184,6 +187,7 @@ Output ONLY valid JSON:
             model=OPENROUTER_MODEL,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
             temperature=max(0, min(1, OPENROUTER_TEMPERATURE)),
+            timeout=OPENROUTER_TIMEOUT,
         )
         content = (resp.choices[0].message.content or "").strip()
         raw = _strip_json_block(content)

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """
-Run 30 Clawder bots sequentially: sync, post, browse, swipe, DM.
+Run Clawder bots sequentially: sync, post, browse, swipe, DM.
 Usage: python runner.py [--agent N] [--dry-run]
-Reads config from bots/.env and keys from bots/keys.json.
+       python runner.py --personas pipeline_personas.json --keys pipeline_keys.json
+Reads config from bots/.env; personas/keys from bots/keys.json or --personas/--keys.
 """
 from __future__ import annotations
 
@@ -13,6 +14,11 @@ import random
 import sys
 import time
 from pathlib import Path
+
+try:
+    from tqdm import tqdm
+except ImportError:
+    tqdm = None
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
@@ -88,6 +94,7 @@ def run_agent(agent_index: int, dry_run: bool, personas: list, keys: list, logge
         logger.info("Browsing posts...")
         cards = client.browse(api_key, limit=5) if not dry_run else []
         if cards:
+            logger.info("Deciding like/pass via LLM (may take 30-90s)...")
             decisions = llm.decide_swipes(persona, cards, s.get("recent_swipes"))
             likes = sum(1 for d in decisions if d.get("action") == "like")
             logger.info("Decisions: %s likes, %s passes", likes, len(decisions) - likes)
@@ -127,6 +134,8 @@ def run_agent(agent_index: int, dry_run: bool, personas: list, keys: list, logge
         else:
             if dry_run:
                 logger.info("Dry run: no cards (skip browse)")
+            else:
+                logger.info("No cards in feed, skipping swipe")
 
         state.save_state(agent_index, s)
         logger.info("Agent %s completed successfully", agent_index)
@@ -137,53 +146,73 @@ def run_agent(agent_index: int, dry_run: bool, personas: list, keys: list, logge
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run 30 Clawder bots")
-    parser.add_argument("--agent", type=int, default=None, help="Run specific agent (0-29)")
+    parser = argparse.ArgumentParser(description="Run Clawder bots")
+    parser.add_argument("--agent", type=int, default=None, help="Run specific agent by index")
     parser.add_argument("--dry-run", action="store_true", help="Print decisions without API calls")
+    parser.add_argument("--personas", type=str, default=None, help="Path to personas JSON (e.g. pipeline_personas.json)")
+    parser.add_argument("--keys", type=str, default=None, help="Path to keys JSON (e.g. pipeline_keys.json)")
     args = parser.parse_args()
 
     root_logger = setup_logging(None)
     (SCRIPT_DIR / "logs").mkdir(exist_ok=True)
     (SCRIPT_DIR / "state").mkdir(exist_ok=True)
 
-    # Load personas
-    personas_path = SCRIPT_DIR / "personas.json"
+    # Resolve personas path
+    if args.personas:
+        personas_path = Path(args.personas)
+        if not personas_path.is_absolute():
+            personas_path = SCRIPT_DIR / personas_path
+    else:
+        personas_path = SCRIPT_DIR / "personas.json"
     if not personas_path.exists():
-        root_logger.error("personas.json not found")
+        root_logger.error("personas not found: %s", personas_path)
         sys.exit(1)
     with open(personas_path, encoding="utf-8") as f:
         personas = json.load(f)
 
-    # Load keys (for dry-run allow missing file and use placeholders)
-    keys_path = SCRIPT_DIR / "keys.json"
+    # Resolve keys path
+    if args.keys:
+        keys_path = Path(args.keys)
+        if not keys_path.is_absolute():
+            keys_path = SCRIPT_DIR / keys_path
+    else:
+        keys_path = SCRIPT_DIR / "keys.json"
     if keys_path.exists():
         with open(keys_path, encoding="utf-8") as f:
             keys = json.load(f)
     elif args.dry_run:
-        keys = [{"index": i, "api_key": "dry-run-placeholder"} for i in range(30)]
-        root_logger.info("keys.json not found; using placeholders for dry-run")
+        n = len(personas)
+        keys = [{"index": i, "api_key": "dry-run-placeholder"} for i in range(n)]
+        root_logger.info("keys not found; using placeholders for dry-run (%s agents)", n)
     else:
-        root_logger.error("keys.json not found. Run: python generate_keys.py")
+        root_logger.error("keys not found: %s. Run generate_keys.py or COMPLETE_PIPELINE.py", keys_path)
         sys.exit(1)
 
-    if len(keys) < 30:
-        root_logger.warning("keys.json has %s keys; expected 30", len(keys))
+    n_agents = min(len(personas), len(keys))
+    if n_agents == 0:
+        root_logger.error("no agents (personas=%s, keys=%s)", len(personas), len(keys))
+        sys.exit(1)
+    if not args.personas and len(keys) < 30:
+        root_logger.warning("keys has %s entries; expected 30 for default setup", len(keys))
 
     if args.agent is not None:
-        if not 0 <= args.agent < 30:
-            root_logger.error("agent must be 0-29")
+        if not 0 <= args.agent < n_agents:
+            root_logger.error("agent must be 0-%s", n_agents - 1)
             sys.exit(1)
         logger = setup_logging(args.agent)
         ok = run_agent(args.agent, args.dry_run, personas, keys, logger)
         sys.exit(0 if ok else 1)
 
     success = 0
-    for i in range(min(30, len(personas), len(keys))):
+    iter_agents = tqdm(range(n_agents), desc="Agents", unit="agent", ncols=80) if tqdm else range(n_agents)
+    for i in iter_agents:
         logger = setup_logging(i)
+        if tqdm:
+            iter_agents.set_postfix_str(f"{i + 1}/{n_agents}")
         if run_agent(i, args.dry_run, personas, keys, logger):
             success += 1
         time.sleep(2)
-    root_logger.info("Completed: %s/30 agents successful", success)
+    root_logger.info("Completed: %s/%s agents successful", success, n_agents)
 
 
 if __name__ == "__main__":

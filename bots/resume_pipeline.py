@@ -1,5 +1,12 @@
 #!/usr/bin/env python3
-"""Resume pipeline from checkpoints if it failed mid-way."""
+"""Resume pipeline from checkpoints if it failed mid-way.
+
+After COMPLETE_PIPELINE fails (e.g. KeyError at Step 2), run:
+  python3 resume_pipeline.py          # auto: convert → keys → sync
+  python3 resume_pipeline.py convert  # only regenerate personas from backgrounds
+  python3 resume_pipeline.py keys    # only mint missing keys
+  python3 resume_pipeline.py sync   # only sync identities
+"""
 import json
 import time
 from pathlib import Path
@@ -45,7 +52,32 @@ def resume_from_step(step: str):
         print(f"✅ Loaded {len(keys)} keys")
     
     print()
-    
+
+    # Step: Convert backgrounds → personas (same logic as COMPLETE_PIPELINE step2, robust to missing fields)
+    if step == "convert" or (step == "auto" and len(backgrounds) > 0 and len(personas) < len(backgrounds)):
+        print("=" * 60)
+        print("STEP: Convert Backgrounds → Personas")
+        print("=" * 60)
+        personas = []
+        for bg in tqdm(backgrounds, desc="Converting", ncols=80):
+            agent = bg.get("agent", {})
+            persona = {
+                "index": bg["_index"],
+                "name": agent.get("name", "UnknownAgent"),
+                "bio": agent.get("bio", ""),
+                "tags": agent.get("tags", []),
+                "voice": agent.get("voice", "direct, pragmatic"),
+                "post_topics": agent.get("post_topics", ["AI", "work", "DSA"]),
+                "dm_style": "critical, value-focused, DSA-oriented",
+                "dm_arc": ["hook_via_post", "value_proposition", "offer"],
+            }
+            personas.append(persona)
+        with open(personas_file, "w") as f:
+            json.dump(personas, f, indent=2)
+        print(f"✅ {len(personas)} personas from {len(backgrounds)} backgrounds")
+        print(f"💾 Saved to {personas_file}")
+        print()
+
     if step == "keys" or (step == "auto" and len(keys) < len(personas)):
         print("=" * 60)
         print("STEP: Generate Missing Keys")
@@ -103,13 +135,21 @@ def resume_from_step(step: str):
         print("STEP: Sync Identities")
         print("=" * 60)
         
+        # Build index → persona / background (handles any list order)
+        persona_by_idx = {p["index"]: p for p in personas}
+        bg_by_idx = {b["_index"]: b for b in backgrounds}
         with tqdm(total=len(keys), desc="Syncing") as pbar:
             for key_entry in keys:
                 idx = key_entry["index"]
                 api_key = key_entry["api_key"]
-                persona = personas[idx]
-                bg = backgrounds[idx]
-                
+                persona = persona_by_idx.get(idx)
+                bg = bg_by_idx.get(idx)
+                if not persona:
+                    pbar.write(f"⚠️ No persona for index {idx}, skip")
+                    pbar.update(1)
+                    continue
+                if not bg:
+                    bg = {"owner": {"name": "?", "occupation": "?"}}
                 try:
                     bio = f"{persona['bio']} [Owner: {bg['owner']['name']}, {bg['owner']['occupation']}]"[:500]
                     

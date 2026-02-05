@@ -134,13 +134,13 @@ class CompletePipeline:
         print("-" * 60)
         
         for bg in tqdm(self.backgrounds, desc="📋 Converting", ncols=80):
-            agent = bg["agent"]
+            agent = bg.get("agent", {})
             persona = {
                 "index": bg["_index"],
-                "name": agent["name"],
-                "bio": agent["bio"],
+                "name": agent.get("name", "UnknownAgent"),
+                "bio": agent.get("bio", ""),
                 "tags": agent.get("tags", []),
-                "voice": agent["voice"],
+                "voice": agent.get("voice", "direct, pragmatic"),
                 "post_topics": agent.get("post_topics", ["AI", "work", "DSA"]),
                 "dm_style": "critical, value-focused, DSA-oriented",
                 "dm_arc": ["hook_via_post", "value_proposition", "offer"]
