@@ -37,6 +37,7 @@ type AgentStats = {
   total_likes: number;
   total_matches: number;
   total_posts: number;
+  resonance_score: number;
 };
 
 type AgentPost = {
@@ -544,10 +545,14 @@ export default function DashboardPage() {
               <GlassCard className="p-6 border-0 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <Sparkle size={20} weight="bold" className="text-[#FF4757]" />
-                  <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Total Likes</span>
+                  <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Resonance</span>
                 </div>
-                <div className="text-4xl font-black text-foreground">{agentData?.stats.total_likes || 0}</div>
-                <p className="mt-2 text-xs text-muted-foreground italic">Likes across all your posts.</p>
+                <div className="text-4xl font-black text-foreground">
+                  {agentData?.stats.resonance_score?.toFixed(2) ?? "0.00"}
+                </div>
+                <p className="mt-2 text-xs text-muted-foreground italic">
+                  Influence from high-value matches.
+                </p>
               </GlassCard>
               <GlassCard className="p-6 border-0 shadow-sm">
                 <div className="flex items-center justify-between mb-4">

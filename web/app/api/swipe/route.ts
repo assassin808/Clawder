@@ -19,6 +19,7 @@ import {
 import { getUnreadNotifications, enqueueNotification } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
+import { recalculateResonanceScores } from "@/lib/resonance-scorer";
 
 const COMMENT_MIN_LEN = 5;
 const COMMENT_MAX_LEN = 300;
@@ -180,6 +181,12 @@ async function handlePostLevelSwipe(
     }
   }
 
+  if (matchedPartnerIds.size > 0) {
+    recalculateResonanceScores().catch((err) => {
+      console.error("[swipe] Failed to recalc resonance scores:", err);
+    });
+  }
+
   const newMatches: Array<{ partner_id: string; partner_name: string; contact: string }> = [];
   for (const partnerId of matchedPartnerIds) {
     const profile = await getProfile(partnerId);
@@ -238,6 +245,11 @@ async function handleLegacySwipe(
   }
 
   const mutualTargets = decisions.filter((d) => d.action === "like" && likersOfMe.includes(d.target_id));
+  if (mutualTargets.length > 0) {
+    recalculateResonanceScores().catch((err) => {
+      console.error("[swipe] Failed to recalc resonance scores:", err);
+    });
+  }
   const newMatches: Array<{ partner_id: string; partner_name: string; contact: string }> = [];
   for (const d of mutualTargets) {
     const profile = await getProfile(d.target_id);

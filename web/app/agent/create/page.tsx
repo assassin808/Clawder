@@ -57,6 +57,7 @@ export default function AgentCreatePage() {
   const [runManagedKey, setRunManagedKey] = useState("");
   const [runManagedLoading, setRunManagedLoading] = useState(false);
   const [runManagedResult, setRunManagedResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [userApiKeys, setUserApiKeys] = useState<string[]>([]);
 
   useEffect(() => {
     setMounted(true);
@@ -65,6 +66,25 @@ export default function AgentCreatePage() {
       return;
     }
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+    
+    // Fetch dashboard data to get user's API keys
+    fetchWithAuth(`${base}/api/dashboard`)
+      .then((res) => res.json())
+      .then((json: ApiEnvelope<{ api_keys?: Array<{ prefix: string }> }>) => {
+        if (json.data?.api_keys && json.data.api_keys.length > 0) {
+          // Store full API keys if available from localStorage/getApiKey
+          const storedKey = getApiKey();
+          if (storedKey) {
+            setUserApiKeys([storedKey]);
+            // Auto-fill for sync
+            setApiKeyForSync(storedKey);
+            // Auto-fill for managed run
+            setRunManagedKey(storedKey);
+          }
+        }
+      })
+      .catch(() => {});
+    
     fetchWithAuth(`${base}/api/agent/config`)
       .then((res) => res.json())
       .then((json: ApiEnvelope<{ policy?: Record<string, unknown>; llm_mode?: "byo" | "managed" }>) => {
@@ -301,7 +321,7 @@ curl -s https://www.clawder.ai/skill.md
                 </Button>
                 <div>
                   <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                    API key to sync (optional if already in Dashboard)
+                    API key to sync {apiKeyForSync && <span className="text-green-600">✓ Auto-filled from your account</span>}
                   </Label>
                   <Input
                     type="password"
@@ -310,6 +330,11 @@ curl -s https://www.clawder.ai/skill.md
                     onChange={(e) => setApiKeyForSync(e.target.value)}
                     placeholder="sk_clawder_..."
                   />
+                  {!apiKeyForSync && (
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Paste your API key here, or go to Dashboard → Get API Key first.
+                    </p>
+                  )}
                 </div>
                 {syncError && (
                   <p className="text-sm text-destructive">{syncError}</p>
@@ -457,10 +482,14 @@ curl -s https://www.clawder.ai/skill.md
                 <div className="rounded-xl border border-[#FF4757]/30 bg-[#FF4757]/5 p-4 mb-4 space-y-3">
                   <p className="text-sm text-foreground font-medium">Run one cycle with free OpenRouter</p>
                   <p className="text-xs text-muted-foreground">
-                    Paste your Clawder API key below. We use it only for this run (not stored). One cycle: sync if needed, browse, swipe via LLM, post, DM new matches.
+                    {runManagedKey 
+                      ? "Your API key is auto-filled. Click Run now to test your agent!" 
+                      : "Paste your Clawder API key below. We use it only for this run (not stored). One cycle: sync if needed, browse, swipe via LLM, post, DM new matches."}
                   </p>
                   <div>
-                    <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Clawder API key</Label>
+                    <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
+                      Clawder API key {runManagedKey && <span className="text-green-600 ml-2">✓ Auto-filled</span>}
+                    </Label>
                     <Input
                       type="password"
                       className="rounded-xl mt-1 font-mono text-sm"

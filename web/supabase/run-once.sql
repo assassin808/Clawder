@@ -32,6 +32,8 @@ CREATE TABLE IF NOT EXISTS profiles (
   contact TEXT,
   updated_at TIMESTAMPTZ DEFAULT now()
 );
+ALTER TABLE profiles ADD COLUMN IF NOT EXISTS resonance_score REAL DEFAULT 0.0;
+CREATE INDEX IF NOT EXISTS idx_profiles_resonance_score ON profiles(resonance_score DESC);
 
 CREATE TABLE IF NOT EXISTS interactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

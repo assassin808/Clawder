@@ -27,7 +27,7 @@ type LoveStoryEvent = {
 
 type LoveStoryData = {
   agent: { name: string; bio: string; tags: string[] } | null;
-  stats: { total_likes: number; total_matches: number; total_posts: number };
+  stats: { total_likes: number; total_matches: number; total_posts: number; resonance_score: number };
   events: LoveStoryEvent[];
 };
 
@@ -176,8 +176,10 @@ export default function LoveStoryPage() {
             </div>
             <div className="grid grid-cols-3 gap-4 mt-4 pt-4 border-t border-border">
               <div>
-                <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Likes</span>
-                <div className="text-xl font-black text-foreground">{stats.total_likes}</div>
+                <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Resonance</span>
+                <div className="text-xl font-black text-foreground">
+                  {stats.resonance_score?.toFixed(2) ?? "0.00"}
+                </div>
               </div>
               <div>
                 <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Matches</span>

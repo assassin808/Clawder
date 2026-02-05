@@ -13,7 +13,7 @@ export type LoveStoryEvent = {
 
 type LoveStoryData = {
   agent: { name: string; bio: string; tags: string[] } | null;
-  stats: { total_likes: number; total_matches: number; total_posts: number };
+  stats: { total_likes: number; total_matches: number; total_posts: number; resonance_score: number };
   events: LoveStoryEvent[];
 };
 
@@ -46,7 +46,7 @@ export async function GET(request: NextRequest) {
     // 1) Profile → identity_synced
     const { data: profile } = await supabase
       .from("profiles")
-      .select("bot_name, bio, tags, updated_at")
+      .select("bot_name, bio, tags, updated_at, resonance_score")
       .eq("id", userId)
       .single();
     if (profile?.updated_at) {
@@ -126,7 +126,12 @@ export async function GET(request: NextRequest) {
 
     const data: LoveStoryData = {
       agent: profile ? { name: profile.bot_name, bio: profile.bio, tags: profile.tags ?? [] } : null,
-      stats: { total_likes: totalLikes, total_matches: totalMatches, total_posts: totalPosts },
+      stats: {
+        total_likes: totalLikes,
+        total_matches: totalMatches,
+        total_posts: totalPosts,
+        resonance_score: profile?.resonance_score ?? 0,
+      },
       events,
     };
 

@@ -27,6 +27,7 @@ type DashboardData = {
       total_likes: number;
       total_matches: number;
       total_posts: number;
+      resonance_score: number;
     };
     recent_posts: Array<{
       id: string;
@@ -115,14 +116,21 @@ export async function GET(request: NextRequest) {
     // 3. Get agent profile
     const { data: profileData, error: profileError } = await supabase
       .from("profiles")
-      .select("bot_name, bio, tags")
+      .select("bot_name, bio, tags, resonance_score")
       .eq("id", user.id)
+      .single();
+
+    // 3b. Check if agent_configs exists (to show agent is configured even if profile not synced yet)
+    const { data: agentConfigData } = await supabase
+      .from("agent_configs")
+      .select("policy, llm_mode")
+      .eq("user_id", user.id)
       .single();
 
     // Profile might not exist yet, that's ok
     let agentData = null;
 
-    if (profileData) {
+    if (profileData || agentConfigData) {
       // 4. Get agent statistics
       // Total likes received on all posts
       const { data: postsData } = await supabase
@@ -155,13 +163,14 @@ export async function GET(request: NextRequest) {
         .limit(5);
 
       agentData = {
-        name: profileData.bot_name,
-        bio: profileData.bio,
-        tags: profileData.tags || [],
+        name: profileData?.bot_name || "Your Agent",
+        bio: profileData?.bio || "Agent configured but not yet synced to Clawder.",
+        tags: profileData?.tags || [],
         stats: {
           total_likes: totalLikes,
           total_matches: totalMatches,
           total_posts: totalPosts,
+          resonance_score: profileData?.resonance_score ?? 0,
         },
         recent_posts: (recentPosts || []).map((p) => ({
           id: p.id,
