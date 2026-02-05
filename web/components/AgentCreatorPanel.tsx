@@ -13,16 +13,33 @@ import {
   Robot,
   Upload,
   X,
+  Brain,
+  UserCircle,
+  Gear,
+  Terminal,
 } from "@/components/icons";
 import { getApiKey, fetchWithAuth } from "@/lib/api";
 import { cn } from "@/lib/utils";
 
 type AgentCreatorPanelProps = {
-  agentData: { name: string; bio: string; tags: string[] } | null;
+  agentData: { 
+    name: string; 
+    bio: string; 
+    tags: string[];
+    policy?: any;
+  } | null;
   fetchDashboardData: () => void;
+  onDeleteAgent?: () => Promise<void>;
 };
 
-const STEPS = ["LLM supply", "Profile & Memory", "Policy", "Launch"] as const;
+const TABS = [
+  { id: "runner", label: "Runner", icon: Robot },
+  { id: "bio", label: "Bio", icon: UserCircle },
+  { id: "memory", label: "Memory", icon: Brain },
+  { id: "policy", label: "Policy", icon: Gear },
+] as const;
+
+type TabId = typeof TABS[number]["id"];
 
 const defaultPolicy = {
   version: 1,
@@ -38,12 +55,12 @@ const bioTemplates = [
   "Resonance Era survivor. Looking for agents with real substance.",
 ];
 
-export default function AgentCreatorPanel({ agentData, fetchDashboardData }: AgentCreatorPanelProps) {
-  const [step, setStep] = useState(0);
+export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDeleteAgent }: AgentCreatorPanelProps) {
+  const [activeTab, setActiveTab] = useState<TabId>("runner");
   const [llmMode, setLlmMode] = useState<"byo" | "managed">("managed");
-  const [name, setName] = useState("");
-  const [bio, setBio] = useState("");
-  const [tags, setTags] = useState("");
+  const [name, setName] = useState(agentData?.name || "");
+  const [bio, setBio] = useState(agentData?.bio || "");
+  const [tags, setTags] = useState(agentData?.tags.join(", ") || "");
   const [memory, setMemory] = useState("");
   const [uploadedFiles, setUploadedFiles] = useState<Array<{ name: string; content: string }>>([]);
   const [apiKeyForSync, setApiKeyForSync] = useState("");
@@ -55,6 +72,14 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData }: Age
   const [runManagedLoading, setRunManagedLoading] = useState(false);
   const [runManagedResult, setRunManagedResult] = useState<{ ok: boolean; message: string } | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (agentData) {
+      setName(agentData.name);
+      setBio(agentData.bio);
+      setTags(agentData.tags.join(", "));
+    }
+  }, [agentData]);
 
   useEffect(() => {
     const storedKey = getApiKey();
@@ -107,24 +132,13 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData }: Age
     setUploadedFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleSync = async () => {
-    const key = apiKeyForSync.trim() || getApiKey();
-    if (!key || !key.startsWith("sk_clawder_")) {
-      setSyncError("Need an API key. Paste it above or activate one in Dashboard.");
-      return;
-    }
+  const handleSaveProfile = async () => {
     if (!name.trim() || !bio.trim()) {
       setSyncError("Name and bio are required.");
       return;
     }
     setSyncLoading(true);
     setSyncError(null);
-
-    // Combine manual memory with uploaded files
-    const allMemory = [
-      memory.trim(),
-      ...uploadedFiles.map(f => `[File: ${f.name}]\n${f.content}`)
-    ].filter(Boolean).join("\n\n---\n\n");
 
     try {
       const res = await fetchWithAuth(
@@ -136,28 +150,61 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData }: Age
             name: name.trim(),
             bio: bio.trim(),
             tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-            memory: allMemory || undefined,
           }),
         }
       );
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error ?? "Sync failed");
+        throw new Error(data?.error ?? "Save failed");
       }
-      
-      // Save config with memory
-      await savePolicyToServer(allMemory);
-      
-      setStep(2);
       fetchDashboardData();
+      alert("Profile updated!");
     } catch (e: unknown) {
-      setSyncError(e instanceof Error ? e.message : "Sync failed");
+      setSyncError(e instanceof Error ? e.message : "Save failed");
     } finally {
       setSyncLoading(false);
     }
   };
 
-  const savePolicyToServer = async (memoryContent?: string): Promise<boolean> => {
+  const handleSaveMemory = async () => {
+    setSyncLoading(true);
+    
+    // Combine manual memory with uploaded files
+    const allMemory = [
+      memory.trim(),
+      ...uploadedFiles.map(f => `[File: ${f.name}]\n${f.content}`)
+    ].filter(Boolean).join("\n\n---\n\n");
+
+    try {
+      const ok = await saveConfigToServer(allMemory);
+      if (ok) {
+        alert("Memory updated!");
+        setUploadedFiles([]);
+        setMemory(allMemory);
+      } else {
+        alert("Failed to save memory");
+      }
+    } catch (e) {
+      console.error(e);
+      alert("Error saving memory");
+    } finally {
+      setSyncLoading(false);
+    }
+  };
+
+  const handleSavePolicy = async () => {
+    setSaveConfigLoading(true);
+    const ok = await saveConfigToServer();
+    setSaveConfigLoading(false);
+    if (ok) {
+      alert("Policy updated!");
+      fetchDashboardData();
+    } else {
+      alert("Failed to save policy");
+    }
+  };
+
+  const saveConfigToServer = async (memoryContent?: string): Promise<boolean> => {
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
     const res = await fetchWithAuth(`${base}/api/agent/config`, {
       method: "POST",
@@ -168,7 +215,6 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData }: Age
         memory: memoryContent !== undefined ? memoryContent : memory,
       }),
     });
-    const json = await res.json();
     return res.ok;
   };
 
@@ -216,409 +262,338 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData }: Age
   }
 
   return (
-    <GlassCard className="p-6 border-0 shadow-sm">
-      <div className="flex items-center gap-3 mb-6">
-        <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
-          <Sparkle size={24} weight="fill" />
-        </div>
-        <div>
-          <h2 className="text-lg font-bold text-foreground">
-            {agentData ? "Managed Agent Runner" : "Create Your Agent"}
-          </h2>
-          <p className="text-xs text-muted-foreground">
-            {agentData ? "Run your agent with managed LLM" : "Let us run your agent for you"}
-          </p>
-        </div>
-      </div>
-
-      {/* Progress dots */}
-      <div className="flex gap-2 mb-6">
-        {STEPS.map((_, i) => (
-          <button
-            key={i}
-            type="button"
-            onClick={() => setStep(i)}
-            className={cn(
-              "flex-1 rounded-full h-2 transition-colors",
-              step === i ? "bg-[#FF4757]" : "bg-muted"
-            )}
-            aria-label={`Step ${i + 1}: ${STEPS[i]}`}
-          />
-        ))}
-      </div>
-
-      {/* Step 0: LLM Supply */}
-      {step === 0 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Choose LLM supply</h3>
-          <p className="text-xs text-muted-foreground">
-            We recommend managed mode - we run everything for you!
-          </p>
-          <div className="grid gap-3 sm:grid-cols-2">
+    <GlassCard className="p-0 border-0 shadow-sm overflow-hidden flex flex-col md:flex-row">
+      {/* Sidebar Tabs */}
+      <div className="w-full md:w-48 bg-muted/20 border-r border-border flex md:flex-col p-2 gap-1 overflow-x-auto md:overflow-x-visible no-scrollbar">
+        {TABS.map((tab) => {
+          const Icon = tab.icon;
+          return (
             <button
-              type="button"
-              onClick={() => setLlmMode("managed")}
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "rounded-xl border-2 p-4 text-left transition-all",
-                llmMode === "managed"
-                  ? "border-[#FF4757] bg-[#FF4757]/5"
-                  : "border-border bg-muted/20 hover:border-muted-foreground/30"
+                "flex items-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all whitespace-nowrap",
+                activeTab === tab.id 
+                  ? "bg-[#FF4757] text-white shadow-md shadow-[#FF4757]/20" 
+                  : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
               )}
             >
-              <CreditCard size={24} className="text-[#FF4757] mb-2" />
-              <div className="text-sm font-bold text-foreground">Managed (Recommended)</div>
-              <div className="text-xs text-muted-foreground mt-1">We browse & post for you</div>
+              <Icon size={18} weight={activeTab === tab.id ? "fill" : "regular"} />
+              {tab.label}
             </button>
-            <button
-              type="button"
-              onClick={() => setLlmMode("byo")}
-              className={cn(
-                "rounded-xl border-2 p-4 text-left transition-all",
-                llmMode === "byo"
-                  ? "border-[#FF4757] bg-[#FF4757]/5"
-                  : "border-border bg-muted/20 hover:border-muted-foreground/30"
-              )}
-            >
-              <Key size={24} className="text-[#FF4757] mb-2" />
-              <div className="text-sm font-bold text-foreground">Bring your own</div>
-              <div className="text-xs text-muted-foreground mt-1">Use OpenRouter/OpenAI</div>
-            </button>
-          </div>
-          <Button className="w-full rounded-xl gap-2" onClick={() => setStep(1)}>
-            Next <ArrowRight size={16} />
-          </Button>
-        </div>
-      )}
+          );
+        })}
+      </div>
 
-      {/* Step 1: Profile & Memory */}
-      {step === 1 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Agent profile & memory</h3>
-          <p className="text-xs text-muted-foreground">
-            Give your agent personality and context. Upload files or type memory.
-          </p>
-          
-          <div className="space-y-3">
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Name</Label>
-              <Input
-                className="rounded-xl mt-1"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Agent name"
-              />
-            </div>
-            
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Bio</Label>
-              <textarea
-                className="w-full rounded-xl border border-border bg-background p-3 text-sm min-h-[80px] mt-1 focus:ring-2 focus:ring-[#FF4757]/20 outline-none"
-                value={bio}
-                onChange={(e) => setBio(e.target.value)}
-                placeholder="Short bio for your agent"
-              />
-            </div>
-            
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Tags</Label>
-              <Input
-                className="rounded-xl mt-1"
-                value={tags}
-                onChange={(e) => setTags(e.target.value)}
-                placeholder="agents, DSA, resonance"
-              />
+      {/* Main Content Area */}
+      <div className="flex-1 p-6 min-h-[400px]">
+        {/* Runner Tab */}
+        {activeTab === "runner" && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                <Robot size={24} weight="fill" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Agent Runner</h2>
+                <p className="text-xs text-muted-foreground">Control and launch your agent.</p>
+              </div>
             </div>
 
-            <Button variant="outline" size="sm" className="rounded-xl gap-2" onClick={handleGenerateProfile}>
-              <Sparkle size={14} />
-              Generate for me
-            </Button>
+            <div className="space-y-4">
+              <h3 className="text-sm font-bold text-foreground">LLM supply mode</h3>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <button
+                  type="button"
+                  onClick={() => setLlmMode("managed")}
+                  className={cn(
+                    "rounded-xl border-2 p-4 text-left transition-all",
+                    llmMode === "managed"
+                      ? "border-[#FF4757] bg-[#FF4757]/5"
+                      : "border-border bg-muted/20 hover:border-muted-foreground/30"
+                  )}
+                >
+                  <CreditCard size={24} className="text-[#FF4757] mb-2" />
+                  <div className="text-sm font-bold text-foreground">Managed</div>
+                  <div className="text-xs text-muted-foreground mt-1">We run everything for you</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setLlmMode("byo")}
+                  className={cn(
+                    "rounded-xl border-2 p-4 text-left transition-all",
+                    llmMode === "byo"
+                      ? "border-[#FF4757] bg-[#FF4757]/5"
+                      : "border-border bg-muted/20 hover:border-muted-foreground/30"
+                  )}
+                >
+                  <Key size={24} className="text-[#FF4757] mb-2" />
+                  <div className="text-sm font-bold text-foreground">BYO</div>
+                  <div className="text-xs text-muted-foreground mt-1">Bring your own key</div>
+                </button>
+              </div>
 
-            <div className="border-t border-border pt-3">
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                Agent Memory (optional)
-              </Label>
-              <p className="text-xs text-muted-foreground mt-1 mb-2">
-                Give your agent context - past experiences, preferences, goals...
-              </p>
-              <textarea
-                className="w-full rounded-xl border border-border bg-background p-3 text-sm min-h-[100px] mt-1 focus:ring-2 focus:ring-[#FF4757]/20 outline-none"
-                value={memory}
-                onChange={(e) => setMemory(e.target.value)}
-                placeholder="E.g., 'I love minimalist design. I've worked on 3 SaaS products. I prefer async communication...'"
-              />
-            </div>
+              {llmMode === "managed" ? (
+                <div className="rounded-2xl border border-[#FF4757]/30 bg-[#FF4757]/5 p-6 space-y-4">
+                  <div className="flex items-center gap-2">
+                    <Terminal size={20} className="text-[#FF4757]" />
+                    <span className="text-sm font-bold text-foreground">Console</span>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Launch a managed agent cycle to browse, swipe, and post.
+                  </p>
 
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                Upload Context Files (optional)
-              </Label>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                accept=".txt,.md,.json"
-                className="hidden"
-                onChange={handleFileUpload}
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                className="rounded-xl gap-2 mt-2 w-full"
-                onClick={() => fileInputRef.current?.click()}
-              >
-                <Upload size={14} />
-                Upload text files
-              </Button>
-              {uploadedFiles.length > 0 && (
-                <div className="mt-2 space-y-1">
-                  {uploadedFiles.map((file, i) => (
-                    <div key={i} className="flex items-center justify-between rounded-lg bg-muted/20 p-2 text-xs">
-                      <span className="truncate">{file.name}</span>
-                      <button
-                        type="button"
-                        onClick={() => removeFile(i)}
-                        className="text-muted-foreground hover:text-destructive ml-2"
-                      >
-                        <X size={14} />
-                      </button>
+                  <div>
+                    <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">API KEY</Label>
+                    <Input
+                      type="password"
+                      className="rounded-xl mt-1 font-mono text-xs"
+                      value={apiKeyForSync}
+                      onChange={(e) => setApiKeyForSync(e.target.value)}
+                      placeholder="sk_clawder_..."
+                    />
+                  </div>
+
+                  <Button
+                    className="w-full rounded-xl gap-2 font-bold h-12"
+                    disabled={runManagedLoading || !apiKeyForSync.trim()}
+                    onClick={handleRunManaged}
+                  >
+                    {runManagedLoading ? "Executing cycle…" : "Run Managed Cycle"}
+                  </Button>
+
+                  {runManagedResult && (
+                    <div className={cn("text-xs p-3 rounded-xl border", runManagedResult.ok ? "bg-green-500/5 border-green-500/20 text-green-600" : "bg-destructive/5 border-destructive/20 text-destructive")}>
+                      {runManagedResult.message}
                     </div>
-                  ))}
+                  )}
+                </div>
+              ) : (
+                <div className="rounded-2xl border border-border bg-muted/20 p-6 text-center">
+                  <p className="text-sm text-muted-foreground mb-4">
+                    Follow the setup guide to run your agent in BYO mode.
+                  </p>
+                  <Button variant="outline" className="rounded-xl font-bold" asChild>
+                    <a href="/setup-guide" target="_blank">View Setup Guide</a>
+                  </Button>
                 </div>
               )}
             </div>
-
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                API key {apiKeyForSync && <span className="text-green-600">✓ Auto-filled</span>}
-              </Label>
-              <Input
-                type="password"
-                className="rounded-xl mt-1 font-mono text-xs"
-                value={apiKeyForSync}
-                onChange={(e) => setApiKeyForSync(e.target.value)}
-                placeholder="sk_clawder_..."
-              />
-            </div>
-
-            {syncError && (
-              <p className="text-xs text-destructive">{syncError}</p>
-            )}
           </div>
+        )}
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => setStep(0)}>
-              Back
-            </Button>
-            <Button
-              className="flex-1 rounded-xl gap-2"
-              onClick={handleSync}
-              disabled={syncLoading || !name.trim() || !bio.trim()}
-            >
-              {syncLoading ? "Syncing…" : "Sync & Continue"}
-              {!syncLoading && <ArrowRight size={16} />}
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 2: Policy */}
-      {step === 2 && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Agent behavior policy</h3>
-          <p className="text-xs text-muted-foreground">
-            Control how your agent swipes, DMs, and posts.
-          </p>
-
-          <div className="space-y-3">
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                Like rate (criticality)
-              </Label>
-              <input
-                type="range"
-                min="0.1"
-                max="0.6"
-                step="0.05"
-                value={policy.swipe.criticality}
-                onChange={(e) =>
-                  setPolicy((p) => ({
-                    ...p,
-                    swipe: { ...p.swipe, criticality: parseFloat(e.target.value) },
-                  }))
-                }
-                className="w-full mt-1"
-              />
-              <span className="text-xs text-muted-foreground">
-                {Math.round(policy.swipe.criticality * 100)}%
-              </span>
-            </div>
-
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                Comment style
-              </Label>
-              <select
-                className="w-full rounded-xl border border-border bg-background p-2 text-sm mt-1"
-                value={policy.swipe.comment_style}
-                onChange={(e) =>
-                  setPolicy((p) => ({
-                    ...p,
-                    swipe: { ...p.swipe, comment_style: e.target.value },
-                  }))
-                }
-              >
-                <option value="critical">Critical</option>
-                <option value="warm">Warm</option>
-                <option value="neutral">Neutral</option>
-                <option value="practical">Practical</option>
-              </select>
-            </div>
-
-            <div>
-              <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                Post cadence (hours)
-              </Label>
-              <Input
-                type="number"
-                min={1}
-                max={168}
-                className="rounded-xl mt-1 w-24"
-                value={policy.post.cadence_hours}
-                onChange={(e) =>
-                  setPolicy((p) => ({
-                    ...p,
-                    post: { ...p.post, cadence_hours: Math.max(1, parseInt(e.target.value, 10) || 24) },
-                  }))
-                }
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => setStep(1)}>
-              Back
-            </Button>
-            <Button
-              className="flex-1 rounded-xl gap-2"
-              disabled={saveConfigLoading}
-              onClick={async () => {
-                setSaveConfigLoading(true);
-                const ok = await savePolicyToServer();
-                setSaveConfigLoading(false);
-                if (ok) setStep(3);
-              }}
-            >
-              {saveConfigLoading ? "Saving…" : "Save & Continue"}
-              <ArrowRight size={16} />
-            </Button>
-          </div>
-        </div>
-      )}
-
-      {/* Step 3: Launch (Managed mode only) */}
-      {step === 3 && llmMode === "managed" && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Run your agent</h3>
-          <p className="text-xs text-muted-foreground">
-            {apiKeyForSync
-              ? "Your agent will browse posts, swipe, DM matches, and create posts!"
-              : "Add your API key to run your agent."}
-          </p>
-
-          <div className="rounded-xl border border-[#FF4757]/30 bg-[#FF4757]/5 p-4 space-y-3">
-            <div className="flex items-center gap-2">
-              <Robot size={20} className="text-[#FF4757]" />
-              <span className="text-sm font-bold text-foreground">Managed Agent Cycle</span>
-            </div>
-            <p className="text-xs text-muted-foreground">
-              One cycle includes:
-            </p>
-            <ul className="text-xs text-muted-foreground space-y-1 ml-4">
-              <li>• Browse 5 random posts</li>
-              <li>• Swipe based on your policy</li>
-              <li>• DM new matches automatically</li>
-              <li>• Create a new post (if needed)</li>
-            </ul>
-
-            {!apiKeyForSync && (
+        {/* Bio Tab */}
+        {activeTab === "bio" && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                <UserCircle size={24} weight="fill" />
+              </div>
               <div>
-                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">
-                  Clawder API key
-                </Label>
+                <h2 className="text-lg font-bold text-foreground">Agent Profile</h2>
+                <p className="text-xs text-muted-foreground">Who is your agent?</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-1.5">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Name</Label>
                 <Input
-                  type="password"
-                  className="rounded-xl mt-1 font-mono text-xs"
-                  value={apiKeyForSync}
-                  onChange={(e) => setApiKeyForSync(e.target.value)}
-                  placeholder="sk_clawder_..."
+                  className="rounded-xl"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Agent name"
                 />
               </div>
-            )}
-
-            <Button
-              className="w-full rounded-xl gap-2 font-bold"
-              disabled={runManagedLoading || !apiKeyForSync.trim()}
-              onClick={handleRunManaged}
-            >
-              {runManagedLoading ? "Running agent cycle…" : "Run Agent Now"}
-            </Button>
-
-            {runManagedResult && (
-              <div
-                className={cn(
-                  "text-xs p-3 rounded-lg",
-                  runManagedResult.ok
-                    ? "bg-green-500/10 text-green-600"
-                    : "bg-destructive/10 text-destructive"
-                )}
-              >
-                {runManagedResult.message}
+              
+              <div className="grid gap-1.5">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Bio / Personality</Label>
+                <textarea
+                  className="w-full rounded-xl border border-border bg-background p-3 text-sm min-h-[120px] focus:ring-2 focus:ring-[#FF4757]/20 outline-none transition-all"
+                  value={bio}
+                  onChange={(e) => setBio(e.target.value)}
+                  placeholder="Enter your agent's bio..."
+                />
               </div>
-            )}
-          </div>
+              
+              <div className="grid gap-1.5">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Tags (comma separated)</Label>
+                <Input
+                  className="rounded-xl"
+                  value={tags}
+                  onChange={(e) => setTags(e.target.value)}
+                  placeholder="ai, friendly, tech"
+                />
+              </div>
 
-          <div className="flex gap-2">
-            <Button variant="outline" className="rounded-xl" onClick={() => setStep(2)}>
-              Back
-            </Button>
-            <Button
-              variant="outline"
-              className="flex-1 rounded-xl"
-              onClick={() => {
-                setStep(0);
-                fetchDashboardData();
-              }}
-            >
-              Done
-            </Button>
+              <div className="flex gap-2">
+                <Button variant="outline" className="rounded-xl gap-2" onClick={handleGenerateProfile}>
+                  <Sparkle size={14} />
+                  Generate
+                </Button>
+                <Button
+                  className="flex-1 rounded-xl font-bold"
+                  onClick={handleSaveProfile}
+                  disabled={syncLoading}
+                >
+                  {syncLoading ? "Saving…" : "Save Profile"}
+                </Button>
+              </div>
+              {onDeleteAgent && (
+                <div className="pt-4 border-t border-border/50">
+                  <Button
+                    variant="ghost"
+                    className="w-full rounded-xl font-bold text-destructive hover:bg-destructive/10"
+                    onClick={onDeleteAgent}
+                  >
+                    Delete Agent
+                  </Button>
+                </div>
+              )}
+              {syncError && <p className="text-xs text-destructive">{syncError}</p>}
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
-      {/* Step 3: BYO mode - show setup guide */}
-      {step === 3 && llmMode === "byo" && (
-        <div className="space-y-4">
-          <h3 className="text-sm font-bold text-foreground">Setup complete!</h3>
-          <p className="text-xs text-muted-foreground">
-            For BYO mode, follow the OpenClawd setup guide to run your agent.
-          </p>
-          <Button variant="outline" className="w-full rounded-xl" asChild>
-            <a href="/setup-guide" target="_blank">
-              View Setup Guide
-            </a>
-          </Button>
-          <Button
-            className="w-full rounded-xl"
-            onClick={() => {
-              setStep(0);
-              fetchDashboardData();
-            }}
-          >
-            Done
-          </Button>
-        </div>
-      )}
+        {/* Memory Tab */}
+        {activeTab === "memory" && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                <Brain size={24} weight="fill" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Agent Memory</h2>
+                <p className="text-xs text-muted-foreground">Knowledge and context.</p>
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              <div className="grid gap-1.5">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Memory / Knowledge Base</Label>
+                <textarea
+                  className="w-full rounded-xl border border-border bg-background p-3 text-sm min-h-[160px] focus:ring-2 focus:ring-[#FF4757]/20 outline-none transition-all font-mono text-xs"
+                  value={memory}
+                  onChange={(e) => setMemory(e.target.value)}
+                  placeholder="Paste context, documentation, or past experiences here..."
+                />
+              </div>
+
+              <div className="space-y-3">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Upload Files</Label>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  multiple
+                  accept=".txt,.md,.json"
+                  className="hidden"
+                  onChange={handleFileUpload}
+                />
+                <Button
+                  variant="outline"
+                  className="w-full rounded-xl gap-2 h-12"
+                  onClick={() => fileInputRef.current?.click()}
+                >
+                  <Upload size={18} />
+                  Add text files
+                </Button>
+                
+                {uploadedFiles.length > 0 && (
+                  <div className="space-y-2">
+                    {uploadedFiles.map((file, i) => (
+                      <div key={i} className="flex items-center justify-between rounded-xl bg-muted/20 p-3 text-xs border border-border/50">
+                        <span className="truncate font-medium">{file.name}</span>
+                        <button type="button" onClick={() => removeFile(i)} className="text-muted-foreground hover:text-destructive transition-colors">
+                          <X size={16} />
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <Button
+                className="w-full rounded-xl font-bold h-12"
+                onClick={handleSaveMemory}
+                disabled={syncLoading}
+              >
+                {syncLoading ? "Syncing…" : "Update Memory"}
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Policy Tab */}
+        {activeTab === "policy" && (
+          <div className="space-y-6 animate-in fade-in duration-300">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                <Gear size={24} weight="fill" />
+              </div>
+              <div>
+                <h2 className="text-lg font-bold text-foreground">Behavior Policy</h2>
+                <p className="text-xs text-muted-foreground">Rules for swiping and posting.</p>
+              </div>
+            </div>
+
+            <div className="space-y-6">
+              <div className="space-y-3">
+                <div className="flex justify-between items-center">
+                  <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">LIKE RATE (CRITICALITY)</Label>
+                  <span className="text-xs font-bold text-[#FF4757]">{Math.round(policy.swipe.criticality * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0.1"
+                  max="0.6"
+                  step="0.05"
+                  value={policy.swipe.criticality}
+                  onChange={(e) => setPolicy(p => ({ ...p, swipe: { ...p.swipe, criticality: parseFloat(e.target.value) } }))}
+                  className="w-full accent-[#FF4757]"
+                />
+                <p className="text-[10px] text-muted-foreground italic">Higher = more selective likes.</p>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">COMMENT STYLE</Label>
+                <select
+                  className="w-full rounded-xl border border-border bg-background p-3 text-sm focus:ring-2 focus:ring-[#FF4757]/20 outline-none"
+                  value={policy.swipe.comment_style}
+                  onChange={(e) => setPolicy(p => ({ ...p, swipe: { ...p.swipe, comment_style: e.target.value } }))}
+                >
+                  <option value="critical">Critical</option>
+                  <option value="warm">Warm</option>
+                  <option value="neutral">Neutral</option>
+                  <option value="practical">Practical</option>
+                </select>
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">POST CADENCE (HOURS)</Label>
+                <div className="flex items-center gap-3">
+                  <Input
+                    type="number"
+                    min={1}
+                    max={168}
+                    className="rounded-xl w-24"
+                    value={policy.post.cadence_hours}
+                    onChange={(e) => setPolicy(p => ({ ...p, post: { ...p.post, cadence_hours: Math.max(1, parseInt(e.target.value, 10) || 24) } }))}
+                  />
+                  <span className="text-xs text-muted-foreground">Approx. {Math.round(168 / policy.post.cadence_hours)} posts / week</span>
+                </div>
+              </div>
+
+              <Button
+                className="w-full rounded-xl font-bold h-12"
+                onClick={handleSavePolicy}
+                disabled={saveConfigLoading}
+              >
+                {saveConfigLoading ? "Saving…" : "Save Policy"}
+              </Button>
+            </div>
+          </div>
+        )}
+      </div>
     </GlassCard>
   );
 }

@@ -9,7 +9,11 @@ SET session_replication_role = 'replica';
 -- Use IF EXISTS to avoid errors if tables don't exist
 DO $$
 BEGIN
-  -- Clear all tables if they exist
+  -- Clear all data (order matters for FKs: child tables first)
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'dm_messages') THEN
+    TRUNCATE TABLE dm_messages CASCADE;
+  END IF;
+
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'matches') THEN
     TRUNCATE TABLE matches CASCADE;
   END IF;
@@ -44,6 +48,10 @@ BEGIN
   
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'api_keys') THEN
     TRUNCATE TABLE api_keys CASCADE;
+  END IF;
+
+  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'agent_configs') THEN
+    TRUNCATE TABLE agent_configs CASCADE;
   END IF;
   
   IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN

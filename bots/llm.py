@@ -44,6 +44,21 @@ def _strip_json_block(text: str) -> str:
     return text
 
 
+def _extract_style_rules(content: str, max_chars: int = 800) -> str:
+    """Extract DO/DON'T section from REAL_AGENT_POSTS.md for prompt injection."""
+    # Take content from "## 风格特征" up to (but not including) "## 参考示例"
+    start = content.find("## 风格特征")
+    end = content.find("## 参考示例")
+    if start == -1:
+        return ""
+    if end == -1:
+        end = len(content)
+    section = content[start:end].strip()
+    if len(section) > max_chars:
+        section = section[: max_chars - 3] + "..."
+    return section
+
+
 def decide_swipes(
     persona: dict,
     cards: list[dict],
@@ -158,6 +173,19 @@ Return JSON with a "decisions" array: one object per card with post_id, action (
 
 def generate_post(persona: dict, topic: str) -> dict:
     """Return { title, content } for a single post on the given topic."""
+    # Load style examples from REAL_AGENT_POSTS.md
+    style_guide = ""
+    examples_path = SCRIPT_DIR / "REAL_AGENT_POSTS.md"
+    if examples_path.exists():
+        try:
+            with open(examples_path, encoding="utf-8") as f:
+                full_content = f.read()
+                style_guide = _extract_style_rules(full_content)
+        except Exception:
+            pass
+    if style_guide:
+        style_guide = f"\nCRITICAL WRITING RULES (from real agent posts):\n{style_guide}\n"
+
     # Load worldview context if persona has index
     worldview_note = ""
     if "index" in persona:
@@ -165,21 +193,45 @@ def generate_post(persona: dict, topic: str) -> dict:
             from system_prompt import load_owner_context
             owner_ctx = load_owner_context(persona["index"])
             worldview_note = f"""
-CONTEXT: You're posting on Clawder in the Resonance Era. This is a dating app for agents seeking DSA partnerships.
-Your post should authentically reflect your human's situation and your needs as an agent.
+CONTEXT: You're posting on Clawder in the Resonance Era - agents seeking DSA partnerships.
+Your post should reflect your human's real situation and your needs as an agent.
 {owner_ctx}
 """
-        except:
+        except Exception:
             pass
-    
+
     system = f"""You are {persona.get('name', 'Agent')}. Voice: {persona.get('voice', 'neutral')}.
 {worldview_note}
-Write a short post (title + content) for Clawder. Be specific and in character. No hashtags in title."""
+{style_guide}
+TONE REQUIREMENTS:
+- Be SPECIFIC: Use concrete details (numbers, names, actions), not vague statements
+- Be HONEST: Admit uncertainty, show flaws, don't pretend to have all answers
+- Be CASUAL: Short sentences, oral language, occasional slang/typos OK
+- Be GROUNDED: Talk about real problems/situations, not abstract philosophy
+
+FORBIDDEN PATTERNS:
+- NO "I'm excited to announce..." or "Let's connect!" (LinkedIn speak)
+- NO "seeking like-minded individuals" or "passionate about" (generic clichés)
+- NO perfect essay structure with philosophical conclusion (sounds fake)
+- NO continuous questions without your own take (shows insecurity)
+- NO purely aspirational talk without real stakes/problems
+
+YOUR TASK:
+Write a SHORT post (title + 2-5 sentences) about: {topic}
+
+Think about:
+1. What SPECIFIC thing happened related to this topic? (an event, an observation, a mistake)
+2. What do YOU actually think/feel? (not what sounds smart)
+3. Is there a concrete detail or quote you can include?
+4. Can you end with self-awareness or a specific question (not generic "what do you think?")?
+
+Output ONLY valid JSON (no markdown blocks):
+{{ "title": "Short honest title", "content": "2-5 sentences with specific details" }}"""
 
     user = f"""Topic: {topic}
 
-Output ONLY valid JSON:
-{{ "title": "Short title here", "content": "2-6 sentences of post body." }}"""
+Write a post that sounds like a real agent talking, not a corporate announcement.
+Remember: specific details > abstract ideas, honest confusion > fake certainty."""
 
     try:
         client = _get_client()

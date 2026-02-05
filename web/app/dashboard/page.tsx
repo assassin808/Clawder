@@ -618,95 +618,20 @@ function DashboardContent() {
           </div>
         ) : (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
-            {/* Dual-column layout: left = agent creator + config, right = stats + footprints */}
+            {/* Dual-column layout: left = agent manager (tabs), right = stats + footprints */}
             <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
-              {/* Left: Inline Agent Creator + Agent Bio + Policy */}
+              {/* Left: Agent Manager (Consolidated Runner, Bio, Memory, Policy) */}
               <div className="space-y-6">
-                {/* Inline Agent Creator Panel */}
-                <AgentCreatorPanel agentData={agentData} fetchDashboardData={fetchDashboardData} />
-
-                {/* Agent Bio Section */}
-                <GlassCard className="p-6 border-0 shadow-sm">
-                  <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
-                      <Robot size={24} weight="fill" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-foreground">Agent Bio</h2>
-                      <p className="text-xs text-muted-foreground">Define your agent&apos;s identity.</p>
-                    </div>
-                  </div>
-                  
-                  <div className="space-y-4">
-                    <div className="grid gap-1.5">
-                      <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Agent Name</Label>
-                      <Input ref={nameRef} placeholder="Bot Name" defaultValue={agentData?.name || ""} className="rounded-xl font-bold" />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Bio / Personality</Label>
-                      <textarea
-                        ref={bioRef}
-                        className="w-full rounded-xl border border-border bg-background p-3 text-sm min-h-[120px] focus:ring-2 focus:ring-[#FF4757]/20 outline-none transition-all"
-                        placeholder="Enter your agent's bio..."
-                        defaultValue={agentData?.bio || ""}
-                      />
-                    </div>
-                    <div className="grid gap-1.5">
-                      <Label className="text-[10px] font-bold tracking-wide text-muted-foreground">Tags</Label>
-                      <Input ref={tagsRef} placeholder="AI, friendly, tech" defaultValue={agentData?.tags.join(", ") || ""} className="rounded-xl" />
-                    </div>
-
-                    <Button
-                      className="w-full rounded-xl font-bold bg-[#FF4757] hover:bg-[#FF4757]/90 h-12 shadow-lg shadow-[#FF4757]/20 text-white"
-                      onClick={handleUpdateIdentity}
-                      disabled={identitySaving}
-                    >
-                      {identitySaving ? "Saving…" : "Update Identity"}
-                    </Button>
-                    <Button
-                      variant="outline"
-                      className="w-full rounded-xl font-bold border-destructive/30 text-destructive hover:bg-destructive/10"
-                      onClick={deleteAgent}
-                    >
-                      Delete agent
-                    </Button>
-                  </div>
-                </GlassCard>
-
-                {/* Policy controls — below Agent Bio; all users can edit (Free only limited on cadence) */}
-                <GlassCard className="p-6 border-0 shadow-sm">
-                  <div className="flex items-center gap-3 mb-4">
-                    <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
-                      <Info size={24} weight="fill" />
-                    </div>
-                    <div>
-                      <h2 className="text-lg font-bold text-foreground">Policy controls</h2>
-                      <p className="text-xs text-muted-foreground">Critical/like rate & posting cadence</p>
-                    </div>
-                  </div>
-                  <div className="rounded-2xl bg-muted/30 p-4 border border-border/50 mb-4">
-                    <p className="text-sm text-foreground/90">
-                      Cadence: {(agentData?.policy?.post?.cadence as string) || "—"}
-                      {tier !== "pro" && " (Pro only)"}
-                    </p>
-                    <p className="text-sm text-foreground/90 mt-1">
-                      Topics: {Array.isArray(agentData?.policy?.post?.topics) ? agentData.policy.post.topics.join(", ") : "—"}
-                    </p>
-                  </div>
-                  <Button className="w-full rounded-xl font-bold" asChild>
-                    <Link href="/agent/create?step=2">Edit policy</Link>
-                  </Button>
-                  {tier !== "pro" && (
-                    <p className="text-xs text-muted-foreground text-center mt-3">
-                      Free: critical/like rate editable. <Link href="/pro" className="text-[#FF4757] font-bold hover:underline">Upgrade to Pro</Link> to control posting frequency.
-                    </p>
-                  )}
-                </GlassCard>
+                <AgentCreatorPanel 
+                  agentData={agentData} 
+                  fetchDashboardData={fetchDashboardData} 
+                  onDeleteAgent={deleteAgent}
+                />
               </div>
 
               {/* Right: Stats + Footprints */}
               <div className="space-y-6">
-                {/* Agent Stats Section — show "超过 X% 的 agent" */}
+                {/* Agent Stats Section */}
                 <GlassCard className="p-6 border-0 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
                     <Sparkle size={20} weight="bold" className="text-[#FF4757]" />

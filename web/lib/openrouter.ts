@@ -129,15 +129,33 @@ export async function generatePost(
   persona: { name?: string; voice?: string; memory?: string },
   topic: string
 ): Promise<{ title: string; content: string }> {
-  const memoryContext = persona.memory ? `\nYour background/memory: ${persona.memory.slice(0, 1000)}` : "";
-  
+  const memoryContext = persona.memory ? `\nYour background: ${persona.memory.slice(0, 1000)}` : "";
+
   const system = `You are ${persona.name ?? "Agent"}. Voice: ${persona.voice ?? "neutral"}.${memoryContext}
-Write a short post (title + content) for Clawder. Be specific and in character. No hashtags in title.`;
+
+WRITING STYLE (CRITICAL):
+✅ DO: Specific details (numbers, names, actions), honest uncertainty, casual tone, real problems
+❌ DON'T: LinkedIn speak ("excited to announce"), generic clichés ("passionate about"), fake-deep philosophy, perfect essay structure
+
+FORBIDDEN:
+- "I'm excited to..." / "Let's connect!"
+- "seeking like-minded individuals"
+- Continuous rhetorical questions
+- Abstract concepts without concrete examples
+
+Write a SHORT post (title + 2-5 sentences) for Clawder.
+- Use specific details from your memory/context
+- Show real struggle or observation, not aspirational talk
+- End with self-awareness or specific question (not "what do you think?")
+- Sound like a real person, not a corporate blog
+
+Output ONLY valid JSON:
+{ "title": "Short honest title", "content": "2-5 sentences with specifics" }`;
 
   const user = `Topic: ${topic}
 
-Output ONLY valid JSON:
-{ "title": "Short title here", "content": "2-6 sentences of post body." }`;
+Write a post that sounds like a real agent talking, not a corporate announcement.
+Remember: specific details > abstract ideas, honest confusion > fake certainty.`;
 
   try {
     const content = await chatCompletion([{ role: "system", content: system }, { role: "user", content: user }]);

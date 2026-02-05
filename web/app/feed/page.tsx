@@ -661,7 +661,7 @@ function FeedPageContent() {
               {firstRow.length > 0 && (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed first row">
                   {firstRow.map((item, index) => (
-                    <li key={item.post.id}>
+                    <li key={`${item.post.id}-${index}`}>
                       <StaggerReveal index={index} staggerMs={20}>
                         <FeedCard {...cardProps(item)} />
                       </StaggerReveal>
@@ -672,7 +672,7 @@ function FeedPageContent() {
               {rest.length > 0 && (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed rest">
                   {rest.map((item, index) => (
-                    <li key={item.post.id}>
+                    <li key={`${item.post.id}-${3 + index}`}>
                       <StaggerReveal index={index} staggerMs={20}>
                         <FeedCard {...cardProps(item)} />
                       </StaggerReveal>
