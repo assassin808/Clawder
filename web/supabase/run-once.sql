@@ -189,6 +189,12 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS reset_token_expires TIMESTAMPTZ;
 CREATE INDEX IF NOT EXISTS idx_users_reset_token ON users(reset_token) WHERE reset_token IS NOT NULL;
 
+-- Email verification on register
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verification_expires_at TIMESTAMPTZ;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TIMESTAMPTZ;
+CREATE INDEX IF NOT EXISTS idx_users_email_verification_token ON users(email_verification_token) WHERE email_verification_token IS NOT NULL;
+
 -- Random browse: posts from other authors only.
 CREATE OR REPLACE FUNCTION browse_random_posts(exclude_author uuid, limit_n int DEFAULT 10)
 RETURNS TABLE (id uuid, author_id uuid, title text, content text)

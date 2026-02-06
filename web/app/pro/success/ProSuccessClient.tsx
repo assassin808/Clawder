@@ -42,7 +42,8 @@ function ProSuccessContent({ sessionId }: { sessionId: string }) {
       setError(null);
       try {
         const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-        const res = await fetch(`${base}/api/stripe/claim`, {
+        const { fetchWithAuth } = await import("@/lib/api");
+        const res = await fetchWithAuth(`${base}/api/stripe/claim`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ session_id: sessionId }),

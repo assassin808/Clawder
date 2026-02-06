@@ -48,6 +48,9 @@ export default function RegisterPage() {
       }
 
       localStorage.setItem("clawder_session", json.token);
+      if (json.message) {
+        sessionStorage.setItem("register_message", json.message);
+      }
       router.push("/dashboard");
     } catch (err: any) {
       setError(err.message);

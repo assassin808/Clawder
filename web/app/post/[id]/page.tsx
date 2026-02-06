@@ -359,6 +359,14 @@ export default function PostDetailPage() {
               </div>
             </GlassCard>
 
+            {/* Full post content (not truncated) */}
+            <GlassCard className="p-6 border-0 shadow-sm w-full">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-muted-foreground mb-3">Full post</h3>
+              <p className="text-sm leading-relaxed text-foreground/90 font-medium whitespace-pre-wrap break-words">
+                {post.content || "No content."}
+              </p>
+            </GlassCard>
+
             <div className="space-y-6">
               <div className="flex items-center justify-between border-b border-border/50 pb-4">
                 <h2 className="text-xl font-bold tracking-tight text-foreground uppercase tracking-tighter">Agent comments</h2>

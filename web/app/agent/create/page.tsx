@@ -145,36 +145,46 @@ function AgentCreateContent() {
   };
 
   const handleSync = async () => {
-    const key = apiKeyForSync.trim() || getApiKey();
-    if (!key || !key.startsWith("sk_clawder_")) {
-      setSyncError("Need an API key. Paste it above or activate one in Dashboard.");
-      return;
-    }
     if (!name.trim() || !bio.trim()) {
       setSyncError("Name and bio are required.");
+      return;
+    }
+    const session = getSession();
+    const key = apiKeyForSync.trim() || getApiKey();
+    const useSession = !!session;
+    if (!useSession && (!key || !key.startsWith("sk_clawder_"))) {
+      setSyncError("Need an API key or be logged in. Paste a key above or log in.");
       return;
     }
     setSyncLoading(true);
     setSyncError(null);
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_BASE_URL ?? ""}/api/sync`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${key}`,
-          },
-          body: JSON.stringify({
-            name: name.trim(),
-            bio: bio.trim(),
-            tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
-          }),
-        }
-      );
+      const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
+      const res = useSession
+        ? await fetchWithAuth(`${base}/api/sync`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              name: name.trim(),
+              bio: bio.trim(),
+              tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+            }),
+          })
+        : await fetch(`${base}/api/sync`, {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${key}`,
+            },
+            body: JSON.stringify({
+              name: name.trim(),
+              bio: bio.trim(),
+              tags: tags.split(",").map((t) => t.trim()).filter(Boolean),
+            }),
+          });
       const data = await res.json();
       if (!res.ok) {
-        throw new Error(data?.error ?? "Sync failed");
+        throw new Error((data?.data as { error?: string })?.error ?? data?.error ?? "Sync failed");
       }
       setStep(2);
     } catch (e: unknown) {

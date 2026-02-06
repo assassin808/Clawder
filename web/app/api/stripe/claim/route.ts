@@ -5,7 +5,8 @@ import { apiJson } from "@/lib/types";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
 import { generateApiKey } from "@/lib/auth";
-import { upsertUserPro } from "@/lib/db";
+import { upsertUserPro, updateUserToProById } from "@/lib/db";
+import { resolveUserFromRequest } from "@/lib/auth-helpers";
 
 const stripe = process.env.STRIPE_SECRET_KEY ? new Stripe(process.env.STRIPE_SECRET_KEY) : null;
 const PRICE_ID = process.env.STRIPE_PRICE_ID;
@@ -65,6 +66,20 @@ export async function POST(request: NextRequest) {
     if (!email || !email.trim().includes("@")) {
       logApi("api.stripe.claim", requestId, { durationMs: Date.now() - start, status: 400, sessionId, error: "missing email" });
       return json(apiJson({ error: "missing email on Stripe session" }, []), 400);
+    }
+
+    const normalizedStripeEmail = email.trim().toLowerCase();
+    const resolved = await resolveUserFromRequest(request);
+    // If session user exists and email matches Stripe, upgrade that account so dashboard shows pro
+    if (resolved?.user?.email && resolved.user.email.trim().toLowerCase() === normalizedStripeEmail) {
+      const { key, prefix, hash } = generateApiKey();
+      const user = await updateUserToProById(resolved.user.id, prefix, hash);
+      if (!user) {
+        logApi("api.stripe.claim", requestId, { durationMs: Date.now() - start, status: 500, sessionId, error: "update user to pro failed" });
+        return json(apiJson({ error: "failed to upgrade account to pro" }, []), 500);
+      }
+      logApi("api.stripe.claim", requestId, { durationMs: Date.now() - start, status: 200, sessionId, userId: user.id, linkedSession: true });
+      return json(apiJson({ api_key: key }, []));
     }
 
     const { key, prefix, hash } = generateApiKey();

@@ -48,6 +48,30 @@ export async function getUserByApiKeyPrefix(prefix: string): Promise<UserRow | n
   return data as UserRow;
 }
 
+/** Get api_keys row by prefix (for Bearer auth when key is in api_keys table). */
+export async function getApiKeyRowByPrefix(prefix: string): Promise<{ user_id: string; hash: string } | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("api_keys")
+    .select("user_id, hash")
+    .eq("prefix", prefix)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as { user_id: string; hash: string };
+}
+
+/** Get full user row by id (for auth after resolving from api_keys). */
+export async function getUserById(userId: string): Promise<UserRow | null> {
+  if (!supabase) return null;
+  const { data, error } = await supabase
+    .from("users")
+    .select("id, email, tier, twitter_handle, daily_swipes, api_key_prefix, api_key_hash, created_at")
+    .eq("id", userId)
+    .maybeSingle();
+  if (error || !data) return null;
+  return data as UserRow;
+}
+
 export async function createUserFree(params: {
   twitter_handle: string | null;
   api_key_prefix: string;
@@ -163,6 +187,27 @@ export async function getProfile(userId: string): Promise<{ bot_name: string; bi
 
 function normalizeEmail(email: string): string {
   return email.trim().toLowerCase();
+}
+
+/** Upgrade an existing user to pro by id (used when Stripe email matches session user). */
+export async function updateUserToProById(
+  userId: string,
+  apiKeyPrefix: string,
+  apiKeyHash: string
+): Promise<{ id: string } | null> {
+  if (!supabase) return null;
+  const proSwipes = Number(process.env.DAILY_SWIPES_PRO) || 400;
+  const { error } = await supabase
+    .from("users")
+    .update({
+      tier: "pro",
+      daily_swipes: proSwipes,
+      api_key_prefix: apiKeyPrefix,
+      api_key_hash: apiKeyHash,
+    })
+    .eq("id", userId);
+  if (error) return null;
+  return { id: userId };
 }
 
 export async function upsertUserPro(

@@ -29,6 +29,7 @@ export {
   Snowflake,
   SealCheck,
   X,
+  XCircle,
   HeartBreak,
   Broadcast,
   Bell,
