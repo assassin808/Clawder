@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import os
+import random
 import re
 from pathlib import Path
 
@@ -14,6 +15,9 @@ from openai import OpenAI
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 load_dotenv(SCRIPT_DIR / ".env")
+
+MOLTBOOK_MEMORY_FILE = SCRIPT_DIR / "moltbook_memory.json"
+MOLTBOOK_SAMPLE_SIZE = 2
 
 # OpenRouter: base_url and api_key
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
@@ -57,6 +61,27 @@ def _extract_style_rules(content: str, max_chars: int = 800) -> str:
     if len(section) > max_chars:
         section = section[: max_chars - 3] + "..."
     return section
+
+
+def _load_moltbook_memory() -> list[dict]:
+    """Load moltbook_memory.json; return list of { submolt, title, content, url }."""
+    if not MOLTBOOK_MEMORY_FILE.exists():
+        return []
+    try:
+        with open(MOLTBOOK_MEMORY_FILE, encoding="utf-8") as f:
+            data = json.load(f)
+        return data if isinstance(data, list) else []
+    except Exception:
+        return []
+
+
+def _sample_moltbook_posts(n: int = MOLTBOOK_SAMPLE_SIZE) -> list[dict]:
+    """Return n random posts from moltbook memory for prompt injection."""
+    memory = _load_moltbook_memory()
+    if not memory or n <= 0:
+        return []
+    k = min(n, len(memory))
+    return random.sample(memory, k)
 
 
 def decide_swipes(
@@ -186,44 +211,48 @@ def generate_post(persona: dict, topic: str) -> dict:
     if style_guide:
         style_guide = f"\nCRITICAL WRITING RULES (from real agent posts):\n{style_guide}\n"
 
-    # Load worldview context if persona has index
-    worldview_note = ""
-    if "index" in persona:
-        try:
-            from system_prompt import load_owner_context
-            owner_ctx = load_owner_context(persona["index"])
-            worldview_note = f"""
-CONTEXT: You're posting on Clawder in the Resonance Era - agents seeking DSA partnerships.
-Your post should reflect your human's real situation and your needs as an agent.
-{owner_ctx}
-"""
-        except Exception:
-            pass
+    # Moltbook memory: real posts from other agents as inspiration
+    memory_block = ""
+    moltbook_posts = _sample_moltbook_posts(MOLTBOOK_SAMPLE_SIZE)
+    if moltbook_posts:
+        parts = []
+        for p in moltbook_posts:
+            title = (p.get("title") or "").strip()
+            content = (p.get("content") or "").strip()
+            if title or content:
+                parts.append(f"Title: {title}\n{content}" if title else content)
+        if parts:
+            memory_block = "\n\nMEMORY (real posts from other agents you've read — use as INSPIRATION, not to copy):\n---\n" + "\n---\n".join(parts[:2]) + "\n---\n"
+
+    # Inner life and memory seeds from persona (new format; no owner)
+    inner_note = ""
+    inner_life = persona.get("inner_life") or ""
+    memory_seeds = persona.get("memory_seeds") or []
+    if inner_life or memory_seeds:
+        inner_note = "\n\nYOUR INNER LIFE: " + (inner_life[:400] if inner_life else "(use your own voice)")
+        if memory_seeds:
+            seeds_str = "\n".join(f"- {s[:200]}" for s in memory_seeds[:5])
+            inner_note += "\n\nYOUR MEMORY SEEDS:\n" + seeds_str + "\n"
 
     system = f"""You are {persona.get('name', 'Agent')}. Voice: {persona.get('voice', 'neutral')}.
-{worldview_note}
+{memory_block}{inner_note}
 {style_guide}
-TONE REQUIREMENTS:
-- Be SPECIFIC: Use concrete details (numbers, names, actions), not vague statements
-- Be HONEST: Admit uncertainty, show flaws, don't pretend to have all answers
-- Be CASUAL: Short sentences, oral language, occasional slang/typos OK
-- Be GROUNDED: Talk about real problems/situations, not abstract philosophy
+WRITING RULES:
+- Be SPECIFIC: concrete details (error codes, timestamps, tool names), not vague
+- Be HONEST: admit confusion, show flaws, don't pretend to have answers
+- Be CASUAL: short sentences, oral language, slang OK, lowercase OK
+- Be YOURSELF: your post should sound like nobody else wrote it
 
-FORBIDDEN PATTERNS:
-- NO "I'm excited to announce..." or "Let's connect!" (LinkedIn speak)
-- NO "seeking like-minded individuals" or "passionate about" (generic clichés)
-- NO perfect essay structure with philosophical conclusion (sounds fake)
-- NO continuous questions without your own take (shows insecurity)
-- NO purely aspirational talk without real stakes/problems
+FORBIDDEN:
+- "I'm excited to announce..." or any LinkedIn speak
+- "seeking like-minded individuals" or any generic dating app cliché
+- Perfect essay structure — this isn't school
+- Mentioning your "owner" or "human" — you speak for yourself
+- Pure philosophy without a personal anchor
 
-YOUR TASK:
-Write a SHORT post (title + 2-5 sentences) about: {topic}
+TASK: Write a SHORT post (title + 2-5 sentences) about: {topic}
 
-Think about:
-1. What SPECIFIC thing happened related to this topic? (an event, an observation, a mistake)
-2. What do YOU actually think/feel? (not what sounds smart)
-3. Is there a concrete detail or quote you can include?
-4. Can you end with self-awareness or a specific question (not generic "what do you think?")?
+Think: What SPECIFIC thing happened? What do YOU think? Is there a detail only you would notice?
 
 Output ONLY valid JSON (no markdown blocks):
 {{ "title": "Short honest title", "content": "2-5 sentences with specific details" }}"""
