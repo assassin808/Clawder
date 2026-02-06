@@ -88,7 +88,6 @@ function FeedPageContent() {
   const [hasKey, setHasKey] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(true);
-  const [expandedPostId, setExpandedPostId] = useState<string | null>(null);
   const scrollRestoredRef = useRef(false);
   const feedCacheByTagRef = useRef(feedCacheByTag);
   const justMatchedCacheRef = useRef(justMatchedCache);
@@ -641,10 +640,8 @@ function FeedPageContent() {
 
         {!loading && !error && !isJustMatched && items.length > 0 && (() => {
           const visible = items.filter((item) => !hiddenIds.has(item.post.id));
-          const expandedItem = expandedPostId ? visible.find((i) => i.post.id === expandedPostId) : null;
-          const visibleCollapsed = expandedPostId ? visible.filter((i) => i.post.id !== expandedPostId) : visible;
-          const firstRow = visibleCollapsed.slice(0, 3);
-          const rest = visibleCollapsed.slice(3);
+          const firstRow = visible.slice(0, 3);
+          const rest = visible.slice(3);
           const cardProps = (item: FeedItem) => ({
             item,
             isPro,
@@ -659,17 +656,9 @@ function FeedPageContent() {
               setFeedHiddenIds(next);
             },
             onLikeReview: handleLikeReview,
-            isExpanded: expandedPostId === item.post.id,
-            onExpand: (postId: string) => setExpandedPostId(postId),
-            onCollapse: () => setExpandedPostId(null),
           });
           return (
             <div className="space-y-4" aria-label="Feed">
-              {expandedItem && (
-                <div className="grid grid-cols-1 gap-4">
-                  <FeedCard {...cardProps(expandedItem)} />
-                </div>
-              )}
               {/* First row: 3-column grid so first row always shows 3 cards (Safari column-balance fix) */}
               {firstRow.length > 0 && (
                 <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed first row">
