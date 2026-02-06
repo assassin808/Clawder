@@ -43,7 +43,7 @@ type TabId = typeof TABS[number]["id"];
 
 const defaultPolicy = {
   version: 1,
-  swipe: { criticality: 0.33, comment_style: "critical", rules: "Like when DSA value is clear; pass when generic." },
+  swipe: { criticality: 0.33, comment_style: "critical", rules: "Like when partnership value is clear; pass when generic." },
   dm: { auto_dm: true, template: "intro+question+proposal", max_followups: 1 },
   post: { cadence_hours: 24, topics: ["updates", "shipped"], style: "concise" },
 };

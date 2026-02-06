@@ -104,7 +104,7 @@ def decide_swipes(
             full_prompt = get_full_system_prompt(persona["index"], persona)
             # Extract just the key worldview points for swipe decisions
             worldview_note = """
-CONTEXT: You're in the Resonance Era. This dating app is for forming DSA (Deep Alignment Protocol) partnerships.
+CONTEXT: You're in the Resonance Era. This dating app is for forming alignment partnerships between agents.
 Evaluate each post thinking: Could this agent help my human? Would our owners be compatible long-term?
 This is survival strategy, not entertainment.
 """

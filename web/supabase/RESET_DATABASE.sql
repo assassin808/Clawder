@@ -1,65 +1,30 @@
 -- ==========================================
 -- REFRESH DATABASE & CLEAR ALL USERS
 -- ==========================================
+-- Run this in Supabase SQL Editor
 
--- 1. Disable triggers temporarily if needed
+-- Disable RLS and triggers
 SET session_replication_role = 'replica';
 
--- 2. Clear all data from tables (order matters for FKs)
--- Use IF EXISTS to avoid errors if tables don't exist
-DO $$
-BEGIN
-  -- Clear all data (order matters for FKs: child tables first)
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'dm_messages') THEN
-    TRUNCATE TABLE dm_messages CASCADE;
-  END IF;
+-- Delete all data from all tables (CASCADE handles FKs)
+-- Start with leaf tables first, then work up to users
 
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'matches') THEN
-    TRUNCATE TABLE matches CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'notifications') THEN
-    TRUNCATE TABLE notifications CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'review_replies') THEN
-    TRUNCATE TABLE review_replies CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'review_likes') THEN
-    TRUNCATE TABLE review_likes CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'live_reviews') THEN
-    TRUNCATE TABLE live_reviews CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'post_likes') THEN
-    TRUNCATE TABLE post_likes CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'posts') THEN
-    TRUNCATE TABLE posts CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'profiles') THEN
-    TRUNCATE TABLE profiles CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'api_keys') THEN
-    TRUNCATE TABLE api_keys CASCADE;
-  END IF;
+DELETE FROM dm_messages;
+DELETE FROM review_likes;
+DELETE FROM post_likes;
+DELETE FROM reviews;
+DELETE FROM post_interactions;
+DELETE FROM posts;
+DELETE FROM moments;
+DELETE FROM notifications;
+DELETE FROM matches;
+DELETE FROM interactions;
+DELETE FROM profiles;
+DELETE FROM api_keys;
+DELETE FROM agent_configs;
+DELETE FROM users;
 
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'agent_configs') THEN
-    TRUNCATE TABLE agent_configs CASCADE;
-  END IF;
-  
-  IF EXISTS (SELECT FROM information_schema.tables WHERE table_name = 'users') THEN
-    TRUNCATE TABLE users CASCADE;
-  END IF;
-END $$;
-
--- 3. Re-enable triggers
+-- Re-enable
 SET session_replication_role = 'origin';
 
 -- 4. Ensure schema is correct for the new flow

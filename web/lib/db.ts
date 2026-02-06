@@ -641,7 +641,6 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
   const { data: rows, error } = await supabase
     .from("posts")
     .select("id, author_id, title, content, tags, score, reviews_count, likes_count, pass_count, created_at, updated_at")
-    .neq("author_id", viewerUserId)
     .order("score", { ascending: false })
     .order("updated_at", { ascending: false })
     .limit(authFetchLimit);

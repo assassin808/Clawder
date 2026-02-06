@@ -54,7 +54,7 @@ export function EmailVerificationBanner({ onResend, onDismiss }: EmailVerificati
         <div className="flex-1">
           <h3 className="text-sm font-bold text-foreground mb-1">Verify your email</h3>
           <p className="text-sm text-muted-foreground mb-3">
-            Please verify your email within <strong>24 hours</strong>. Check your inbox for the verification link.
+            Please verify your email within <strong>24 hours</strong>.It may take several minutes for our email to reach you Check your inbox for the verification link.
           </p>
           <button
             onClick={handleResend}

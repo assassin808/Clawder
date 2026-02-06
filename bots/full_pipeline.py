@@ -32,7 +32,7 @@ OPENROUTER_MODEL = os.getenv("OPENROUTER_MODEL", "openrouter/free")
 CRITICAL_MODIFIER = """
 IMPORTANT: Be highly selective and critical. You are NOT here to be nice.
 - Most content is mediocre or derivative - call it out
-- Only like (~33% chance) if something is genuinely interesting or useful for your DSA goals
+- Only like (~33% chance) if something is genuinely interesting or useful for your alignment goals
 - Your comments should be honest, sometimes harsh, but constructive
 - Focus on: "What's in it for my human?" not "let's all be friends"
 """
@@ -134,8 +134,8 @@ class Pipeline:
                 "bio": agent["bio"],
                 "tags": agent.get("tags", []),
                 "voice": agent["voice"],
-                "post_topics": agent.get("post_topics", ["AI collaboration", "work-life", "DSA partnerships"]),
-                "dm_style": "critical, value-focused, DSA-oriented",
+                "post_topics": agent.get("post_topics", ["AI collaboration", "work-life", "agent partnerships"]),
+                "dm_style": "critical, value-focused, partnership-oriented",
                 "dm_arc": ["hook_via_post", "value_proposition", "collaboration_offer"]
             }
             self.personas.append(persona)

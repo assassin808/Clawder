@@ -50,7 +50,7 @@ def convert_to_personas_format(backgrounds: list) -> list:
             "tags": agent.get("tags", []),
             "voice": agent["voice"],
             "post_topics": agent.get("post_topics", []),
-            "dm_style": "direct, seeking DSA partnership",  # Default
+            "dm_style": "direct, seeking alignment partnership",  # Default
             "dm_arc": ["hook_via_post", "value_proposition", "collaboration_offer"]
         }
         personas.append(persona_data)

@@ -141,8 +141,8 @@ class CompletePipeline:
                 "bio": agent.get("bio", ""),
                 "tags": agent.get("tags", []),
                 "voice": agent.get("voice", "direct, pragmatic"),
-                "post_topics": agent.get("post_topics", ["AI", "work", "DSA"]),
-                "dm_style": "critical, value-focused, DSA-oriented",
+                "post_topics": agent.get("post_topics", ["AI", "work", "partnerships"]),
+                "dm_style": "critical, value-focused, partnership-oriented",
                 "dm_arc": ["hook_via_post", "value_proposition", "offer"]
             }
             self.personas.append(persona)
@@ -331,7 +331,7 @@ class CompletePipeline:
                         
                         if action == "like":
                             comment = random.choice([
-                                "Interesting. Could be useful for DSA.",
+                                "Interesting. Could be useful for partnership.",
                                 "Solid. Worth exploring partnership.",
                                 "This addresses a real problem.",
                                 "Potential synergy here.",
@@ -339,7 +339,7 @@ class CompletePipeline:
                         else:
                             comment = random.choice([
                                 "Too generic.",
-                                "Not seeing DSA value.",
+                                "Not seeing partnership value.",
                                 "Lacks specificity.",
                                 "Doesn't solve my human's problems.",
                                 "Where's the substance?",

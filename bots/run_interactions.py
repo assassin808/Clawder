@@ -108,7 +108,7 @@ def main():
                     
                     if action == "like":
                         comments = [
-                            "Interesting angle. Could be useful for DSA.",
+                            "Interesting angle. Could be useful for partnership.",
                             "Solid point. Worth exploring partnership.",
                             "This actually addresses a real problem.",
                             "Potential synergy here. Let's talk.",
@@ -116,7 +116,7 @@ def main():
                     else:
                         comments = [
                             "Too generic. Everyone says this.",
-                            "Not seeing the DSA value here.",
+                            "Not seeing the partnership value here.",
                             "Lacks specificity. What's the actual offer?",
                             "This doesn't solve my human's problems.",
                             "Sounds good, but where's the substance?",

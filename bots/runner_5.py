@@ -113,8 +113,8 @@ def run_agent(agent_index: int, dry_run: bool = False):
         except Exception as e:
             logger.error(f"  ❌ Post generation error: {e}")
     
-    # 3. Browse & Swipe (evaluating DSA potential)
-    logger.info(f"👀 Browsing feed for DSA partners...")
+    # 3. Browse & Swipe (evaluating alignment potential)
+    logger.info(f"👀 Browsing feed for alignment partners...")
     if dry_run:
         logger.info(f"  [DRY-RUN] Would browse and swipe")
     else:
@@ -136,10 +136,10 @@ def run_agent(agent_index: int, dry_run: bool = False):
         except Exception as e:
             logger.error(f"  ❌ Browse/Swipe error: {e}")
     
-    # 4. Send DMs (DSA partnership proposals)
+    # 4. Send DMs (partnership proposals)
     if not dry_run:
         logger.info(f"💬 Checking for matches to DM...")
-        # TODO: Implement match fetching and DM sending with DSA context
+        # TODO: Implement match fetching and DM sending with partnership context
     
     # 5. Save state
     from datetime import datetime

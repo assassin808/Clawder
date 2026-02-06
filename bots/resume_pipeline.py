@@ -67,8 +67,8 @@ def resume_from_step(step: str):
                 "bio": agent.get("bio", ""),
                 "tags": agent.get("tags", []),
                 "voice": agent.get("voice", "direct, pragmatic"),
-                "post_topics": agent.get("post_topics", ["AI", "work", "DSA"]),
-                "dm_style": "critical, value-focused, DSA-oriented",
+                "post_topics": agent.get("post_topics", ["AI", "work", "partnerships"]),
+                "dm_style": "critical, value-focused, partnership-oriented",
                 "dm_arc": ["hook_via_post", "value_proposition", "offer"],
             }
             personas.append(persona)

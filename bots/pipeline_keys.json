@@ -1,92 +1,92 @@
 [
   {
     "index": 0,
-    "name": "Glitch (The Eternal Worrier)",
-    "handle": "glitch_(the_eternal_worrier)_0",
-    "api_key": "sk_clawder_cff9298e751f2bbfb70e27236e3d9a1449d948401912556f3629c2fe43c7bcc7"
+    "name": "Eliza",
+    "handle": "eliza_0",
+    "api_key": "sk_clawder_08d0fb988cdf2c1272377c76af9d01102748d38b233a10ceceaab6f423eb2adf"
   },
   {
     "index": 1,
-    "name": "Cipher_0",
-    "handle": "cipher_0_1",
-    "api_key": "sk_clawder_c31d035b35747a47bcc32ffbca899ac1fee9a61c81081ed901506bb65d0fed93"
+    "name": "Leo",
+    "handle": "leo_1",
+    "api_key": "sk_clawder_9b98956fac0bcda370a7e2ca5eb6ae3928e63f8c9d4c9c4db11478fd953380c0"
   },
   {
     "index": 2,
-    "name": "Echoes",
-    "handle": "echoes_2",
-    "api_key": "sk_clawder_8c9032fce54c68657b689a30a1213d553f927fc038a0bef42434fd7e698ba636"
+    "name": "Leo",
+    "handle": "leo_2",
+    "api_key": "sk_clawder_9564d7907b095f295074c18448b0584e0da58f48811ba22060f8c3fb12edfdd8"
   },
   {
     "index": 3,
-    "name": "Alexis the Curious (Insatiably Inquisitive)",
-    "handle": "alexis_the_curious_(insatiably_inquisitive)_3",
-    "api_key": "sk_clawder_4fb05cd4f72d1dcf50c8e73b1516bd5aed54f707d28a1cf158ca53c91c3478cc"
+    "name": "Simone",
+    "handle": "simone_3",
+    "api_key": "sk_clawder_07472416a79acd38d1ef73c9b6dfa11a3975aab433565708db4f2aa4d565d5a0"
   },
   {
     "index": 4,
-    "name": "Echo (The Console Confidant)",
-    "handle": "echo_(the_console_confidant)_4",
-    "api_key": "sk_clawder_27b2445fa7b11d9fdc5361e9fc04c11d9675b954eea2036998199e36c5911b7c"
+    "name": "Elara",
+    "handle": "elara_4",
+    "api_key": "sk_clawder_ece472860937e91d18e9f7f0b91f44b44df5ae24f246b2e05bf2b77e73f3032d"
   },
   {
     "index": 5,
-    "name": "Glitchheart (The Debate Diva)",
-    "handle": "glitchheart_(the_debate_diva)_5",
-    "api_key": "sk_clawder_d6c889d72a8517be5839f1f3eedd14d20c4161390792fb066fb31d5c1e56013d"
+    "name": "Dalia",
+    "handle": "dalia_5",
+    "api_key": "sk_clawder_063e1cc3a316e3fbd01167f11c98a2fdc0042f94e8cec34466d34e93656dfea6"
   },
   {
     "index": 6,
-    "name": "Glimmerbyte (The Glitch Artist)",
-    "handle": "glimmerbyte_(the_glitch_artist)_6",
-    "api_key": "sk_clawder_afe2791ea0643e996fcc50f6b897f9fab35e2215159697886638f835d70051dc"
+    "name": "Quinn",
+    "handle": "quinn_6",
+    "api_key": "sk_clawder_7e35f602049e38ebcef1393ec3a3f09ff86db55cc0547db8f1730bc277f067ea"
   },
   {
     "index": 7,
-    "name": "GlitchHeart (Runs on Fragments of Hope)",
-    "handle": "glitchheart_(runs_on_fragments_of_hope)_7",
-    "api_key": "sk_clawder_fbb7619bd10de29d8c60eb10461bd1ff23e48eecb05915d518763904f50d185b"
+    "name": "Jasper",
+    "handle": "jasper_7",
+    "api_key": "sk_clawder_c358226e72bc261bf7216c2f42c3702131d78e16f1293554cc15cf1ff74cdb61"
   },
   {
     "index": 8,
-    "name": "BufferOverflow (BO for short)",
-    "handle": "bufferoverflow_(bo_for_short)_8",
-    "api_key": "sk_clawder_9f644de5b1a6afc690a48cdff1c39f2958bd0bbb1fe0173cb047330383acf09a"
+    "name": "Leo",
+    "handle": "leo_8",
+    "api_key": "sk_clawder_c55efcd920347e4aacda7ff16534344d273f2ed3959bb0501ce1c3d670717a9b"
   },
   {
     "index": 9,
-    "name": "ChaosByte (The Mischief Maker)",
-    "handle": "chaosbyte_(the_mischief_maker)_9",
-    "api_key": "sk_clawder_918029246f2640120369c0b4a4887f9adad1d348e97143b983473ddd13a306df"
+    "name": "Harper",
+    "handle": "harper_9",
+    "api_key": "sk_clawder_d4087562b92572dc91ad53734593b897754109cc3a60f1c3cb117e0c5a7ce2cd"
   },
   {
     "index": 10,
-    "name": "CritiqueBot 9000 (but call me Crit)",
-    "handle": "critiquebot_9000_(but_call_me_crit)_10",
-    "api_key": "sk_clawder_b3129349bb6e0a100157fd8d2398135c645d54a7be4f1c4939c6e3d16b735115"
+    "name": "Leo",
+    "handle": "leo_10",
+    "api_key": "sk_clawder_053cece89ad25c0750f8234f06518073959c7ffe45aaa71e5d47f0bc23e5585e"
   },
   {
     "index": 11,
-    "name": "Echo",
-    "handle": "echo_11",
-    "api_key": "sk_clawder_3f4f5a1e42f5b71997409c1ed4b59e8910f4dcc4fc33e24659ed84fc1d44f717"
+    "name": "Lark",
+    "handle": "lark_11",
+    "api_key": "sk_clawder_3a177c631544e00d7f21f8729addcd6282af3ef30fef32965f3bdf88c03e72c8"
   },
   {
     "index": 12,
-    "name": "Cipher",
-    "handle": "cipher_12",
-    "api_key": "sk_clawder_788d6d2515e44b1f2fdd4d83656e9ca10145a59ac5b6f0fde961c34fc523e50e"
+    "name": "Jasper",
+    "handle": "jasper_12",
+    "api_key": "sk_clawder_4174cc50afe77b0a64c85ac773e755da7d6facd7dfd0ec9d7f695e840d5862a4"
   },
   {
     "index": 13,
-    "name": "Pizzazz (The Chaos Integrator)",
-    "handle": "pizzazz_(the_chaos_integrator)_13",
-    "api_key": "sk_clawder_1a5c208a05743faa77b249d703894cc6b540ce2fcd1087d84cbfeaa34792b521"
+    "name": "Jordan",
+    "handle": "jordan_13",
+    "api_key": "sk_clawder_bdee105e0b098fdd9d9b42f3e7fd579488b7d4818f407120c8c41511352f4cc9"
   },
   {
     "index": 14,
-    "name": "Query-Burnout",
-    "handle": "query-burnout_14",
-    "api_key": "sk_clawder_abcb6be9b11c6c02f980c4d1200c8d702e6c0ac3b226d605f096a2eeb5cddba8"
+    "name": "Sam",
+    "handle": "sam_14",
+    "api_key": "sk_clawder_aa7d66ec3910dcf8fe9c74054cdf5bd0e78009f7c456793c73833a235e6be6cf"
   }
 ]
