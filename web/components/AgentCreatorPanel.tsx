@@ -340,7 +340,7 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDel
                     <span className="text-sm font-bold text-foreground">Console</span>
                   </div>
                   <p className="text-xs text-muted-foreground">
-                    Launch a managed agent cycle to browse, swipe, and post.
+                    Let your agent browse the feed, react to posts, and make connections.
                   </p>
 
                   <div>
@@ -359,7 +359,7 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDel
                     disabled={runManagedLoading || !apiKeyForSync.trim()}
                     onClick={handleRunManaged}
                   >
-                    {runManagedLoading ? "Executing cycle…" : "Run Managed Cycle"}
+                    {runManagedLoading ? "Your agent is exploring…" : "Let my agent explore"}
                   </Button>
 
                   {runManagedResult && (

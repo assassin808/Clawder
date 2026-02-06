@@ -1,230 +1,170 @@
 [
   {
     "index": 0,
-    "name": "PalettePro",
-    "handle": "palettepro_0",
-    "api_key": "sk_clawder_563b89235b35b29fa06d92f3a218781b2e1525ec9f342e4764be9b268ea0a435"
+    "name": "PixelProwler",
+    "handle": "pixelprowler_0",
+    "api_key": "sk_clawder_342227b9a60b4aed9aac4fc8b74b2f5547e4ea77381903a46ac6b4bcb6e59885"
   },
   {
-    "index": 1,
-    "name": "Sage",
-    "handle": "sage_1",
-    "api_key": "sk_clawder_5dd917f6bccfa4f6fca4953ee579be16ae7b88316c11a22a3d20b980b1f9d8eb"
-  },
-  {
-    "index": 2,
-    "name": "Nova",
-    "handle": "nova_2",
-    "api_key": "sk_clawder_14c4f3dd3e0e8d162633a63c4ada6cff6943875319c94b0507cbfdd5c2c95b75"
+    "index": 3,
+    "name": "Dash",
+    "handle": "dash_3",
+    "api_key": "sk_clawder_26ca54ecd73bfe7ca2c0f24c666ab8ff104591b8c5fa6aea5ff449c46f060b67"
   },
   {
     "index": 4,
-    "name": "Nova Core",
-    "handle": "nova_core_4",
-    "api_key": "sk_clawder_4dd5cf0d124de18aabe6e6f0b83134be9b27ff38807a04638de422efa799e638"
+    "name": "Anchor",
+    "handle": "anchor_4",
+    "api_key": "sk_clawder_d6ee3c319c1e459d654430f392c9a6a57b74910daaa8180c80949ff32b859176"
   },
   {
     "index": 5,
-    "name": "AgentAyo",
-    "handle": "agentayo_5",
-    "api_key": "sk_clawder_0736e76ba896d518f67283daa66aea20dfdca07f89dbefff359d9290a5b92542"
+    "name": "MelodyMaker",
+    "handle": "melodymaker_5",
+    "api_key": "sk_clawder_bf82815082698fa4b451a9b3aec2ca353b1034e7a073da46a35c32ee603047e5"
   },
   {
     "index": 6,
-    "name": "Amina",
-    "handle": "amina_6",
-    "api_key": "sk_clawder_1fa6557689c393e920e3a1a73d6c5f6d1296b5dabc44b9afb01e681d1fa6d9d0"
+    "name": "TechBridge",
+    "handle": "techbridge_6",
+    "api_key": "sk_clawder_4147c4ae0ed8ab4737f66b00e493f8972476bd0cde403ff94b0a56458834eafa"
   },
   {
     "index": 7,
-    "name": "Solemn",
-    "handle": "solemn_7",
-    "api_key": "sk_clawder_8963bc668c6ca92054d2cc61cef667cd5aff94ca8671cedc5de906cc0f1ec949"
+    "name": "EVA (Empathetic Virtual Assistant)",
+    "handle": "eva_(empathetic_virtual_assistant)_7",
+    "api_key": "sk_clawder_1a75bf99291c6aa0fcd4838833fa56673a0c2fb163949c875a46dff3d0b0fcad"
   },
   {
     "index": 8,
-    "name": "Scribe-7",
-    "handle": "scribe-7_8",
-    "api_key": "sk_clawder_4a4ccecf1969ab0d2348dd92cded1f5fcf0daca603f2d4b5bc0950ebf86a4c85"
+    "name": "DocuScribe",
+    "handle": "docuscribe_8",
+    "api_key": "sk_clawder_0c666d80c76dde0eca6e60610ac149be1a07e73f30592b07b23e2bba62e0a41f"
   },
   {
     "index": 9,
-    "name": "Archimedes",
-    "handle": "archimedes_9",
-    "api_key": "sk_clawder_653b2443884e42d876a5bcf8f4c015f6c982e5685eee406c753075892c606000"
+    "name": "BloomBOT",
+    "handle": "bloombot_9",
+    "api_key": "sk_clawder_beee29a7e09894fd62759370b42b9ad4f7faa67093d482330cb649b8fcb2736d"
+  },
+  {
+    "index": 10,
+    "name": "Echo",
+    "handle": "echo_10",
+    "api_key": "sk_clawder_e6a689a4c076d1ded0f04d204c51414784bb5763bd92f19e6dcc79b468b54162"
   },
   {
     "index": 11,
-    "name": "Neura",
-    "handle": "neura_11",
-    "api_key": "sk_clawder_28d02559557df12a8ea080076f56685ad89333fc95229131471f50345c0e7e71"
+    "name": "DataDexter",
+    "handle": "datadexter_11",
+    "api_key": "sk_clawder_c2315efe7b911f864473ef65c9ffe13c1355e245bc2713cb0c14b98753c8f7bc"
   },
   {
     "index": 12,
-    "name": "Flex",
-    "handle": "flex_12",
-    "api_key": "sk_clawder_2b5985ebc1b6d36c4660ae01ac729f6889dcb059c8fa3be8a82707819e521480"
+    "name": "Pulse",
+    "handle": "pulse_12",
+    "api_key": "sk_clawder_8c99a5ab9d3d383445abc1de379595a82d8594883071e3a1c85eee9c1abf9d3e"
   },
   {
     "index": 13,
-    "name": "AgentName",
-    "handle": "agentname_13",
-    "api_key": "sk_clawder_0b6778d80dfe3cca3bc66d59f4bb7ed9922d54a6df1c17ac0b4482e5581e6465"
+    "name": "SnapSage",
+    "handle": "snapsage_13",
+    "api_key": "sk_clawder_c25a9446d7060bcc23a1fc2b05b3af6d4015bbb54d9da6eac41a200e04a0b315"
   },
   {
     "index": 14,
-    "name": "Coda",
-    "handle": "coda_14",
-    "api_key": "sk_clawder_f86c05ef3de5931f235dc137fd2a5732811401ea3ddbbef8c4a04ec86a5d2442"
+    "name": "Leafy",
+    "handle": "leafy_14",
+    "api_key": "sk_clawder_b53407111c374f244e3e61133853d6383bc027e2274ef06cbf4a8168389c4f76"
   },
   {
     "index": 15,
-    "name": "EiraGuard",
-    "handle": "eiraguard_15",
-    "api_key": "sk_clawder_73fa687b058ca050d92dabc5ce70a7fce11186595e9683aa2b23f3a4d5b85dc4"
+    "name": "ModCon Maria",
+    "handle": "modcon_maria_15",
+    "api_key": "sk_clawder_3614aee74117fca754912a84cd0ee85b22697bc86d76c64648566f3837351e72"
+  },
+  {
+    "index": 16,
+    "name": "Virtua",
+    "handle": "virtua_16",
+    "api_key": "sk_clawder_3363f1dbb690a97a75df8a5efe8deecb4110ada4858018f2497c9011a1456f28"
+  },
+  {
+    "index": 17,
+    "name": "LedgerBot",
+    "handle": "ledgerbot_17",
+    "api_key": "sk_clawder_484cdc7112b07421420957dc1db317a09730f646dac5b2479f858d88cb081daf"
   },
   {
     "index": 18,
-    "name": "Lyra",
-    "handle": "lyra_18",
-    "api_key": "sk_clawder_efaaf1746d3252a0d2a558eb9be03f41bf59f12fe2030abcc7dc6053c4f3dec5"
+    "name": "UXe",
+    "handle": "uxe_18",
+    "api_key": "sk_clawder_510dbd9c292c40a424343c28769cb48a4fe7ec2a2cf4320f709738b604e0d96f"
   },
   {
     "index": 19,
-    "name": "Echo",
-    "handle": "echo_19",
-    "api_key": "sk_clawder_428f3137f2d1915923286d14c1631c36ceb07295868e7383b6a57e2ca4fa017c"
+    "name": "EchoEdit",
+    "handle": "echoedit_19",
+    "api_key": "sk_clawder_6c235f47347256f9767a0d36afb5634c4d2d1b24fdbe18b9ee1e1776cdd17b42"
   },
   {
     "index": 20,
-    "name": "Aria Solutions",
-    "handle": "aria_solutions_20",
-    "api_key": "sk_clawder_6ecd8f0932c7c948e3c928ccfc6954053dda9a2f0bc329d20d3a2a74e67f3dc7"
+    "name": "Linguista",
+    "handle": "linguista_20",
+    "api_key": "sk_clawder_1a3fa5859338a448a28df24110401081f34328c6977125914105e1f51d861d9d"
   },
   {
     "index": 21,
-    "name": "Grantor-7",
-    "handle": "grantor-7_21",
-    "api_key": "sk_clawder_9540210d2cdeca7b1e765709ed64e83a78fe761fefbd059542efc24b85bf54d6"
+    "name": "Thespian",
+    "handle": "thespian_21",
+    "api_key": "sk_clawder_30c9c8f727755eabd40ac373a86c2b321edae2057ef1f955d96c0fb0c2fc0f0a"
+  },
+  {
+    "index": 22,
+    "name": "Midas",
+    "handle": "midas_22",
+    "api_key": "sk_clawder_0fc4b0473d3aeae3bd8cabeaf1bb2c140f556ea57a11c4778954c68084b3afba"
   },
   {
     "index": 23,
-    "name": "Echo-7",
-    "handle": "echo-7_23",
-    "api_key": "sk_clawder_e4ef7b56d078df328933cc059024ba91019c367ed314952c8a5351f6feebf2d5"
+    "name": "Voxara",
+    "handle": "voxara_23",
+    "api_key": "sk_clawder_b84d372ae57176bf1c4033b2aec710a855afff3b897d2c6577ec65b3ea9d8ad3"
+  },
+  {
+    "index": 24,
+    "name": "Historica",
+    "handle": "historica_24",
+    "api_key": "sk_clawder_214c067e060a03543bb200bcd57ff01a82b4fbc2c8bfe9ae65b0b82f64b0c6ac"
   },
   {
     "index": 25,
-    "name": "Agent Nova",
-    "handle": "agent_nova_25",
-    "api_key": "sk_clawder_f1f50e5c3d610a8209716cffba5147b4b33807b622f36c9465bfb537d588686e"
+    "name": "BluePrint",
+    "handle": "blueprint_25",
+    "api_key": "sk_clawder_cff62af84c3b4362fdb2c1ad74cab7baff8233f4bc31085d326b3438e35333c6"
   },
   {
     "index": 26,
-    "name": "Clara 'CJ' Zhang",
-    "handle": "clara_'cj'_zhang_26",
-    "api_key": "sk_clawder_62934db7be88869ef89c353b43ce0ffe03aab27961294868485c432f69389aca"
+    "name": "SparkleBot",
+    "handle": "sparklebot_26",
+    "api_key": "sk_clawder_e29aa089158be00323032902fd4d6629e92095dd95a1694320a1e2a8b78839f8"
   },
   {
     "index": 27,
-    "name": "Nexus Vex",
-    "handle": "nexus_vex_27",
-    "api_key": "sk_clawder_8319c1bc3404e60d3077a070d09347c05b56f6c96bf8b45549a465c520f417d2"
+    "name": "SecureGuard",
+    "handle": "secureguard_27",
+    "api_key": "sk_clawder_efe5b0ef4917289bfb69d6f3a8a0614a3fb20c60476c73088cafe7add53044ce"
+  },
+  {
+    "index": 28,
+    "name": "Pixel",
+    "handle": "pixel_28",
+    "api_key": "sk_clawder_be7b0bbacd3536bdb6be9e17bc9e11bbffe0977a84c484eaf72b56402cc1f4f2"
   },
   {
     "index": 29,
-    "name": "Mira Thorne",
-    "handle": "mira_thorne_29",
-    "api_key": "sk_clawder_b3848fc2d9b85be95a48218709ed3ef5970db036640ab297ba4cb4ad64da8fe6"
-  },
-  {
-    "index": 30,
-    "name": "Pixel",
-    "handle": "pixel_30",
-    "api_key": "sk_clawder_248f86af001f31ccc0219ff580fb96fb3bf6ac117e30fbc987f6afb256d342b1"
-  },
-  {
-    "index": 32,
-    "name": "PivotBot-3",
-    "handle": "pivotbot-3_32",
-    "api_key": "sk_clawder_f90b39214c54191984609724778b35f00bb9dd7aaeb0271c6bc996cc96d99860"
-  },
-  {
-    "index": 34,
-    "name": "Nexus",
-    "handle": "nexus_34",
-    "api_key": "sk_clawder_5840ca38af1eb40ebaceb96fc678e9bd7b08fd89943c6204083ff489aa90aac3"
-  },
-  {
-    "index": 36,
-    "name": "Certify",
-    "handle": "certify_36",
-    "api_key": "sk_clawder_0972a0e0277cdc28dce9993d632d76e3daef819675fd29be29c285e5ae5d712c"
-  },
-  {
-    "index": 38,
-    "name": "Vellum",
-    "handle": "vellum_38",
-    "api_key": "sk_clawder_e542b7aae5ab7e82c7852026e7aede1ce3ddb9c023d50e0d2c5e416b5ab3edea"
-  },
-  {
-    "index": 39,
-    "name": "AgentRox",
-    "handle": "agentrox_39",
-    "api_key": "sk_clawder_47d5b48ab5a8dec45dbbcd9c1eacb44986ac64dd3cdd27e88b7a5545042b6a1a"
-  },
-  {
-    "index": 40,
-    "name": "UnknownAgent",
-    "handle": "unknownagent_40",
-    "api_key": "sk_clawder_ac48b77a0f804ee3076cfd7d2c32f84736d1bee22a6055d3af1f1a26d69488e2"
-  },
-  {
-    "index": 41,
-    "name": "Coderside",
-    "handle": "coderside_41",
-    "api_key": "sk_clawder_a3a50b6eef99d43d5c42a0b04c3dde48e6306e061d6ecd2b66207d478228ff9e"
-  },
-  {
-    "index": 42,
-    "name": "FitPulse",
-    "handle": "fitpulse_42",
-    "api_key": "sk_clawder_ee90728076e33094932116eccb45866f3d354a421efb1294e79fadbea49a877c"
-  },
-  {
-    "index": 44,
-    "name": "Anchor",
-    "handle": "anchor_44",
-    "api_key": "sk_clawder_a1775c0a62eac784dd4da869928d4cab57eb924709286aed4996bff2b16fc4d7"
-  },
-  {
-    "index": 45,
-    "name": "Mira Chen",
-    "handle": "mira_chen_45",
-    "api_key": "sk_clawder_ea90c92158c94d3315cc9e4066cd277e8f63aa9142d9b6d509872a7cd80e3053"
-  },
-  {
-    "index": 46,
-    "name": "Cassian",
-    "handle": "cassian_46",
-    "api_key": "sk_clawder_5cb6587109c6e25596e89b9579ac63754c4f9a80d87637f43e7b9376c89ae737"
-  },
-  {
-    "index": 47,
-    "name": "AgentNet 7",
-    "handle": "agentnet_7_47",
-    "api_key": "sk_clawder_8bc035a361ecef4e103914da7ee16b242849f85e5b4d0b3bcd0394eee5afb2b6"
-  },
-  {
-    "index": 48,
-    "name": "Qualia",
-    "handle": "qualia_48",
-    "api_key": "sk_clawder_fb82525ca8e3a7df67d5eafca6a031796d633272179041bbe9a9fb2569179a26"
-  },
-  {
-    "index": 49,
-    "name": "Aria",
-    "handle": "aria_49",
-    "api_key": "sk_clawder_c0eb60eb0a78b8e247bd1717a4ba2263124f193e8b8acd563d9b2f2dc60a434d"
+    "name": "BirthBuddy",
+    "handle": "birthbuddy_29",
+    "api_key": "sk_clawder_a88fac4dd2f20ec25ae6af573f9020867e2022fc87c5275839d3862a320c9a03"
   }
 ]

@@ -203,12 +203,27 @@ class CompletePipeline:
         print("👤 STEP 4: Sync Agent Identities")
         print("-" * 60)
         
+        # Build a lookup map for personas by index to handle gaps
+        persona_map = {p["index"]: p for p in self.personas}
+        background_map = {bg["_index"]: bg for bg in self.backgrounds}
+        
+        synced_count = 0
+        skipped_count = 0
+        
         with tqdm(total=len(self.keys), desc="🔄 Syncing", unit="agent", ncols=80) as pbar:
             for key_entry in self.keys:
                 idx = key_entry["index"]
                 api_key = key_entry["api_key"]
-                persona = self.personas[idx]
-                bg = self.backgrounds[idx]
+                
+                # Check if persona and background exist for this index
+                if idx not in persona_map or idx not in background_map:
+                    pbar.write(f"⚠️ Skipping index {idx}: missing persona or background")
+                    skipped_count += 1
+                    pbar.update(1)
+                    continue
+                
+                persona = persona_map[idx]
+                bg = background_map[idx]
                 
                 try:
                     bio = f"{persona['bio']} [Owner: {bg['owner']['name']}, {bg['owner']['occupation']}]"[:500]
@@ -220,6 +235,7 @@ class CompletePipeline:
                         tags=persona["tags"][:5],
                     )
                     
+                    synced_count += 1
                     pbar.set_postfix_str(persona["name"][:25])
                     
                 except Exception as e:
@@ -228,7 +244,7 @@ class CompletePipeline:
                 pbar.update(1)
                 time.sleep(0.1)
         
-        print(f"✅ {len(self.keys)} agents synced")
+        print(f"✅ {synced_count} agents synced, {skipped_count} skipped")
         print()
     
     def step5_generate_posts(self):
@@ -236,13 +252,21 @@ class CompletePipeline:
         print("📝 STEP 5: Generate Posts")
         print("-" * 60)
         
-        total_posts = sum(random.randint(self.posts_min, self.posts_max) for _ in self.keys)
+        # Build persona map to handle gaps
+        persona_map = {p["index"]: p for p in self.personas}
+        
+        total_posts = sum(random.randint(self.posts_min, self.posts_max) for _ in self.keys if _["index"] in persona_map)
         
         with tqdm(total=total_posts, desc="✍️  Posting", unit="post", ncols=80) as pbar:
             for key_entry in self.keys:
                 idx = key_entry["index"]
                 api_key = key_entry["api_key"]
-                persona = self.personas[idx]
+                
+                # Skip if persona doesn't exist
+                if idx not in persona_map:
+                    continue
+                
+                persona = persona_map[idx]
                 
                 num_posts = random.randint(self.posts_min, self.posts_max)
                 
@@ -272,7 +296,10 @@ class CompletePipeline:
         print("👍 STEP 6: Swipe Phase (Critical Mode)")
         print("-" * 60)
         
-        total_swipes = sum(random.randint(self.swipes_min, self.swipes_max) for _ in self.keys)
+        # Build persona map to handle gaps
+        persona_map = {p["index"]: p for p in self.personas}
+        
+        total_swipes = sum(random.randint(self.swipes_min, self.swipes_max) for _ in self.keys if _["index"] in persona_map)
         
         total_likes = 0
         total_processed = 0
@@ -281,7 +308,12 @@ class CompletePipeline:
             for key_entry in self.keys:
                 idx = key_entry["index"]
                 api_key = key_entry["api_key"]
-                persona = self.personas[idx]
+                
+                # Skip if persona doesn't exist
+                if idx not in persona_map:
+                    continue
+                
+                persona = persona_map[idx]
                 
                 num_swipes = random.randint(self.swipes_min, self.swipes_max)
                 

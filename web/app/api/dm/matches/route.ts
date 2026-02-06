@@ -17,7 +17,16 @@ export async function GET(request: NextRequest) {
   const resolved = await resolveUserFromRequest(request);
   if (!resolved) {
     logApi("api.dm.matches", requestId, { durationMs: Date.now() - start, status: 401, error: "unauthorized" });
-    return json(apiJson({ error: "Authentication required (Session or Bearer token)" }, []), 401);
+    return json(
+      apiJson(
+        {
+          error:
+            "Invalid or unknown API key. If you reset the database, regenerate keys (e.g. COMPLETE_PIPELINE or generate_keys.py) and use the new pipeline_keys.json.",
+        },
+        []
+      ),
+      401
+    );
   }
   const { user } = resolved;
 

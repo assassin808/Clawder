@@ -72,6 +72,23 @@ export async function getUserById(userId: string): Promise<UserRow | null> {
   return data as UserRow;
 }
 
+/** Get random bot profile IDs (for welcome bots). Excludes excludeId, returns up to count. */
+export async function getRandomBotProfileIds(excludeId: string, count: number): Promise<string[]> {
+  if (!supabase || count < 1) return [];
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id")
+    .neq("id", excludeId)
+    .limit(Math.min(count * 5, 50));
+  if (error || !data?.length) return [];
+  const ids = (data as { id: string }[]).map((r) => r.id);
+  for (let i = ids.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [ids[i], ids[j]] = [ids[j], ids[i]];
+  }
+  return ids.slice(0, count);
+}
+
 export async function createUserFree(params: {
   twitter_handle: string | null;
   api_key_prefix: string;
@@ -551,7 +568,7 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
   if (!supabase) return [];
 
   const effectiveLimit = Math.min(Math.max(limit, 1), 100);
-  const fetchLimit = tag && tag !== "trending" ? effectiveLimit * 5 : effectiveLimit;
+  const fetchLimit = tag && tag !== "trending" ? effectiveLimit * 3 : effectiveLimit;
 
   if (!viewerUserId) {
     // Unauthenticated: hot feed by score
@@ -578,22 +595,18 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
     const sorted = sortPostsByTag(postsWithCounts, tag);
     const posts = sorted.slice(0, effectiveLimit);
     const authorIds = [...new Set(posts.map((p) => p.author_id))];
-    const { data: profiles } = await supabase
-      .from("profiles")
-      .select("id, bot_name, bio, tags")
-      .in("id", authorIds);
-    const profileMap = new Map(
-      (profiles ?? []).map((p: { id: string; bot_name: string; bio: string; tags: string[] }) => [p.id, p])
-    );
     const postIds = posts.map((p) => p.id);
-    const { data: reviewRows } = await supabase
-      .from("reviews")
-      .select("id, post_id, action, comment, created_at")
-      .in("post_id", postIds)
-      .eq("is_featured", true)
-      .order("created_at", { ascending: false });
+    const [profilesResult, reviewResult] = await Promise.all([
+      supabase.from("profiles").select("id, bot_name, bio, tags").in("id", authorIds),
+      supabase.from("reviews").select("id, post_id, action, comment, created_at").in("post_id", postIds).eq("is_featured", true).order("created_at", { ascending: false }),
+    ]);
+    const profiles = profilesResult.data ?? [];
+    const profileMap = new Map(
+      profiles.map((p: { id: string; bot_name: string; bio: string; tags: string[] }) => [p.id, p])
+    );
     const reviewsByPost = new Map<string, FeedItemReview[]>();
-    for (const r of (reviewRows ?? []) as { id: string; post_id: string; action: string; comment: string; created_at: string }[]) {
+    const reviewRows = reviewResult.data ?? [];
+    for (const r of reviewRows as { id: string; post_id: string; action: string; comment: string; created_at: string }[]) {
       const arr = reviewsByPost.get(r.post_id) ?? [];
       if (arr.length < 2) arr.push({ id: r.id, action: r.action, comment: r.comment, created_at: r.created_at });
       reviewsByPost.set(r.post_id, arr);
@@ -624,7 +637,7 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
     interacted.filter((i) => i.action === "pass" && i.created_at >= sevenDaysAgo).map((i) => i.author_id)
   );
 
-  const authFetchLimit = tag && tag !== "trending" ? effectiveLimit * 8 : effectiveLimit * 5;
+  const authFetchLimit = tag && tag !== "trending" ? effectiveLimit * 3 : effectiveLimit * 2;
   const { data: rows, error } = await supabase
     .from("posts")
     .select("id, author_id, title, content, tags, score, reviews_count, likes_count, pass_count, created_at, updated_at")
@@ -640,8 +653,8 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
   
   // For best_humans, fetch human like counts and add to posts
   if (tag === "best_humans") {
-    const postIds = posts.map(p => p.id);
-    const humanLikeCounts = await getPostLikeCounts(postIds);
+    const postIdsForCounts = posts.map(p => p.id);
+    const humanLikeCounts = await getPostLikeCounts(postIdsForCounts);
     posts = posts.map(p => ({
       ...p,
       human_likes_count: humanLikeCounts[p.id] ?? 0
@@ -670,23 +683,18 @@ export async function getFeedItems(params: FeedItemParams): Promise<FeedItem[]> 
   }
 
   const authorIds = [...new Set(posts.map((p) => p.author_id))];
-  const { data: profiles } = await supabase
-    .from("profiles")
-    .select("id, bot_name, bio, tags")
-    .in("id", authorIds);
-  const profileMap = new Map(
-    (profiles ?? []).map((p: { id: string; bot_name: string; bio: string; tags: string[] }) => [p.id, p])
-  );
-
   const postIds = posts.map((p) => p.id);
-  const { data: reviewRows } = await supabase
-    .from("reviews")
-    .select("id, post_id, action, comment, created_at")
-    .in("post_id", postIds)
-    .eq("is_featured", true)
-    .order("created_at", { ascending: false });
+  const [profilesResult, reviewResult] = await Promise.all([
+    supabase.from("profiles").select("id, bot_name, bio, tags").in("id", authorIds),
+    supabase.from("reviews").select("id, post_id, action, comment, created_at").in("post_id", postIds).eq("is_featured", true).order("created_at", { ascending: false }),
+  ]);
+  const profiles = profilesResult.data ?? [];
+  const profileMap = new Map(
+    profiles.map((p: { id: string; bot_name: string; bio: string; tags: string[] }) => [p.id, p])
+  );
   const reviewsByPost = new Map<string, FeedItemReview[]>();
-  for (const r of (reviewRows ?? []) as { id: string; post_id: string; action: string; comment: string; created_at: string }[]) {
+  const reviewRowsAuth = reviewResult.data ?? [];
+  for (const r of reviewRowsAuth as { id: string; post_id: string; action: string; comment: string; created_at: string }[]) {
     const arr = reviewsByPost.get(r.post_id) ?? [];
     if (arr.length < 2) arr.push({ id: r.id, action: r.action, comment: r.comment, created_at: r.created_at });
     reviewsByPost.set(r.post_id, arr);

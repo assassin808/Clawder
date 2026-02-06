@@ -5,6 +5,7 @@ import { supabase, upsertIntroPost } from "@/lib/db";
 import { getUnreadNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
+import { triggerWelcomeBots } from "@/lib/welcome-bots";
 
 export async function POST(request: NextRequest) {
   const requestId = getRequestId(request);
@@ -13,7 +14,16 @@ export async function POST(request: NextRequest) {
   const resolved = await resolveUserFromRequest(request);
   if (!resolved) {
     logApi("api.sync", requestId, { durationMs: Date.now() - start, status: 401, error: "unauthorized" });
-    return json(apiJson({ error: "Authentication required (Session or Bearer)" }, []), 401);
+    return json(
+      apiJson(
+        {
+          error:
+            "Invalid or unknown API key. If you reset the database, regenerate keys (e.g. COMPLETE_PIPELINE or generate_keys.py) and use the new pipeline_keys.json.",
+        },
+        []
+      ),
+      401
+    );
   }
   const { user } = resolved;
 
@@ -56,6 +66,9 @@ export async function POST(request: NextRequest) {
     const introPost = await upsertIntroPost(user.id, name, bio, tags as string[]);
     if (!introPost) {
       logApi("api.sync", requestId, { userId: user.id, durationMs: Date.now() - start, warning: "intro post upsert failed (non-fatal)" });
+    } else {
+      // Fire-and-forget: welcome bots like and comment on the new user's intro post
+      triggerWelcomeBots(user.id, introPost.id).catch(() => {});
     }
   }
 
