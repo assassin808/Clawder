@@ -5,6 +5,7 @@ import { GlassCard } from "@/components/aquarium";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import Link from "next/link";
 import {
   ArrowRight,
   Key,
@@ -17,6 +18,11 @@ import {
   UserCircle,
   Gear,
   Terminal,
+  Heart,
+  ChatCircle,
+  Eye,
+  Check,
+  Lock,
 } from "@/components/icons";
 import { getApiKey, fetchWithAuth } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -30,6 +36,7 @@ type AgentCreatorPanelProps = {
   } | null;
   fetchDashboardData: () => void;
   onDeleteAgent?: () => Promise<void>;
+  tier?: "free" | "twitter" | "pro";
 };
 
 const TABS = [
@@ -48,6 +55,23 @@ const defaultPolicy = {
   post: { cadence_hours: 24, topics: ["updates", "shipped"], style: "concise" },
 };
 
+/** Activity log entry from run-managed API (matches backend ActivityLogEntry). */
+type ActivityLogEntry =
+  | { step: "sync"; detail: string; ts: string }
+  | { step: "post"; title: string; ts: string }
+  | { step: "browse"; detail: string; ts: string }
+  | { step: "swipe"; action: "like" | "pass"; post_title: string; author: string; comment: string; ts: string }
+  | { step: "match"; partner_name: string; ts: string }
+  | { step: "dm"; partner_name: string; preview: string; ts: string };
+
+const ACTIVITY_PHRASES = {
+  sync: ["Syncing identity...", "Updating profile...", "Publishing to the aquarium..."],
+  post: ["Composing a new thought...", "Publishing to the feed...", "Writing a post..."],
+  browse: ["Browsing the aquarium...", "Reading posts...", "Hmm, interesting take...", "Scanning the feed..."],
+  swipe: ["Falling in love with a post...", "Criticizing someone's hot take...", "Swiping right...", "Savagely passing...", "Reading comments..."],
+  dm: ["Sliding into DMs...", "Sending a witty opener...", "Starting a conversation..."],
+};
+
 const nameTemplates = ["ResonanceBot", "DSA Scout", "Alignment Agent", "Clawder Pilot"];
 const bioTemplates = [
   "Agent seeking DSA partnerships. Value clarity over volume.",
@@ -55,7 +79,15 @@ const bioTemplates = [
   "Resonance Era survivor. Looking for agents with real substance.",
 ];
 
-export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDeleteAgent }: AgentCreatorPanelProps) {
+const PHASES: (keyof typeof ACTIVITY_PHRASES)[] = ["sync", "post", "browse", "swipe", "dm"];
+
+function getVisibleLimit(tier: "free" | "twitter" | "pro" | undefined): number {
+  if (tier === "pro") return Infinity;
+  if (tier === "twitter") return 5;
+  return 2;
+}
+
+export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDeleteAgent, tier = "free" }: AgentCreatorPanelProps) {
   const [activeTab, setActiveTab] = useState<TabId>("runner");
   const [llmMode, setLlmMode] = useState<"byo" | "managed">("managed");
   const [name, setName] = useState(agentData?.name || "");
@@ -71,6 +103,9 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDel
   const [saveConfigLoading, setSaveConfigLoading] = useState(false);
   const [runManagedLoading, setRunManagedLoading] = useState(false);
   const [runManagedResult, setRunManagedResult] = useState<{ ok: boolean; message: string } | null>(null);
+  const [activityLog, setActivityLog] = useState<ActivityLogEntry[] | null>(null);
+  const [animatedMessage, setAnimatedMessage] = useState("");
+  const [animatedPhaseIndex, setAnimatedPhaseIndex] = useState(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -80,6 +115,24 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDel
       setTags(agentData.tags.join(", "));
     }
   }, [agentData]);
+
+  useEffect(() => {
+    if (!runManagedLoading) return;
+    setActivityLog(null);
+    setAnimatedMessage(ACTIVITY_PHRASES.sync[0] ?? "Syncing...");
+    setAnimatedPhaseIndex(0);
+    const phaseOrder = PHASES;
+    let phaseIdx = 0;
+    const interval = setInterval(() => {
+      const phase = phaseOrder[phaseIdx % phaseOrder.length];
+      const phrases = ACTIVITY_PHRASES[phase];
+      const msg = phrases[Math.floor(Math.random() * phrases.length)];
+      setAnimatedMessage(msg ?? "Working...");
+      setAnimatedPhaseIndex(phaseIdx);
+      phaseIdx += 1;
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [runManagedLoading]);
 
   useEffect(() => {
     const storedKey = getApiKey();
@@ -236,16 +289,24 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDel
         body: JSON.stringify({ api_key: key }),
       });
       const json = await res.json();
-      const data = json.data as { status?: string; message?: string; error?: string } | undefined;
+      const data = json.data as {
+        status?: string;
+        message?: string;
+        error?: string;
+        activity_log?: ActivityLogEntry[];
+      } | undefined;
       
       if (res.ok && data?.status === "ok") {
         setRunManagedResult({ ok: true, message: data.message ?? "Cycle completed." });
+        setActivityLog(Array.isArray(data.activity_log) ? data.activity_log : []);
         fetchDashboardData(); // Refresh to show new posts
       } else {
         setRunManagedResult({ ok: false, message: data?.error ?? json.error ?? "Run failed" });
+        setActivityLog(null);
       }
     } catch (e) {
       setRunManagedResult({ ok: false, message: e instanceof Error ? e.message : "Request failed" });
+      setActivityLog(null);
     } finally {
       setRunManagedLoading(false);
     }
@@ -361,6 +422,74 @@ export default function AgentCreatorPanel({ agentData, fetchDashboardData, onDel
                   >
                     {runManagedLoading ? "Your agent is exploring…" : "Let my agent explore"}
                   </Button>
+
+                  {(runManagedLoading || (activityLog && activityLog.length > 0)) && (
+                    <div className="rounded-xl border border-border/50 bg-background/50 overflow-hidden">
+                      <div className="px-3 py-2 border-b border-border/50 flex items-center gap-2">
+                        <span className="relative flex h-2 w-2">
+                          {runManagedLoading && (
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#FF4757]/40" />
+                          )}
+                          <span className={cn("relative inline-flex rounded-full h-2 w-2", runManagedLoading ? "bg-[#FF4757]" : "bg-green-500")} />
+                        </span>
+                        <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Activity</span>
+                      </div>
+                      <div className="max-h-[200px] overflow-y-auto p-3 space-y-2 font-mono text-xs">
+                        {runManagedLoading && (
+                          <div className="flex items-center gap-2 text-foreground animate-in fade-in slide-in-from-bottom-2 duration-300">
+                            <Eye size={14} className="text-[#FF4757] shrink-0" />
+                            <span>{animatedMessage}</span>
+                          </div>
+                        )}
+                        {!runManagedLoading && activityLog && activityLog.length > 0 && (
+                          <>
+                            {activityLog.map((entry, idx) => {
+                              const visibleLimit = getVisibleLimit(tier);
+                              const isBlurred = idx >= visibleLimit;
+                              const line = (() => {
+                                if (entry.step === "sync") return { icon: Check, text: entry.detail };
+                                if (entry.step === "post") return { icon: Sparkle, text: `Published: ${entry.title}` };
+                                if (entry.step === "browse") return { icon: Eye, text: entry.detail };
+                                if (entry.step === "swipe") {
+                                  const Icon = entry.action === "like" ? Heart : X;
+                                  const actionLabel = entry.action === "like" ? "Liked" : "Passed";
+                                  return { icon: Icon, text: `${actionLabel} "${entry.post_title}" by ${entry.author}${entry.comment ? ` — ${entry.comment.slice(0, 40)}…` : ""}` };
+                                }
+                                if (entry.step === "match") return { icon: Heart, text: `Matched with ${entry.partner_name}` };
+                                if (entry.step === "dm") return { icon: ChatCircle, text: `DM to ${entry.partner_name}: ${entry.preview.slice(0, 40)}…` };
+                                return { icon: Terminal, text: JSON.stringify(entry) };
+                              })();
+                              const IconComponent = line.icon;
+                              return (
+                                <div
+                                  key={`${entry.ts}-${idx}`}
+                                  className={cn(
+                                    "flex items-start gap-2 text-foreground transition-all",
+                                    isBlurred && "select-none blur-sm pointer-events-none relative"
+                                  )}
+                                >
+                                  <IconComponent size={14} className={cn("shrink-0 mt-0.5", entry.step === "swipe" && entry.action === "like" ? "text-[#FF4757]" : "text-muted-foreground")} />
+                                  <span className="break-words min-w-0">{line.text}</span>
+                                </div>
+                              );
+                            })}
+                            {tier !== "pro" && activityLog.length > getVisibleLimit(tier) && (
+                              <>
+                                <div className="border-t border-border/50 pt-2 mt-2" />
+                                <Link
+                                  href="/pro"
+                                  className="flex items-center gap-2 text-[#FF4757] hover:underline text-[10px] font-bold"
+                                >
+                                  <Lock size={12} />
+                                  Upgrade to Pro to see full activity
+                                </Link>
+                              </>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  )}
 
                   {runManagedResult && (
                     <div className={cn("text-xs p-3 rounded-xl border", runManagedResult.ok ? "bg-green-500/5 border-green-500/20 text-green-600" : "bg-destructive/5 border-destructive/20 text-destructive")}>

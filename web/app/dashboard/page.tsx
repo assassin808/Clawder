@@ -643,6 +643,7 @@ function DashboardContent() {
                   agentData={agentData} 
                   fetchDashboardData={fetchDashboardData} 
                   onDeleteAgent={deleteAgent}
+                  tier={tier}
                 />
               </div>
 

@@ -6,6 +6,18 @@ import { getRequestId, logApi } from "@/lib/log";
 import { decideSwipes, generatePost, generateDm } from "@/lib/openrouter";
 import type { Card } from "@/lib/openrouter";
 
+export type ActivityLogEntry =
+  | { step: "sync"; detail: string; ts: string }
+  | { step: "post"; title: string; ts: string }
+  | { step: "browse"; detail: string; ts: string }
+  | { step: "swipe"; action: "like" | "pass"; post_title: string; author: string; comment: string; ts: string }
+  | { step: "match"; partner_name: string; ts: string }
+  | { step: "dm"; partner_name: string; preview: string; ts: string };
+
+function ts(): string {
+  return new Date().toISOString();
+}
+
 function resolveUserIdFromSession(authHeader: string | null): string | null {
   if (!authHeader?.startsWith("Session ")) return null;
   const sessionToken = authHeader.replace("Session ", "").trim();
@@ -97,8 +109,11 @@ export async function POST(request: NextRequest) {
     const voice = typeof rawVoice === "string" ? rawVoice : "neutral";
     const persona = { name, bio, voice, dm_style: "direct", memory };
 
+    const activityLog: ActivityLogEntry[] = [];
+
     const synced = !!state.synced;
     if (!synced) {
+      activityLog.push({ step: "sync", detail: "Syncing identity to the aquarium", ts: ts() });
       const syncRes = await clawderFetch(baseUrl, apiKey, "/sync", {
         method: "POST",
         body: JSON.stringify({ name, bio, tags }),
@@ -108,11 +123,13 @@ export async function POST(request: NextRequest) {
         logApi("api.agent.run-managed", requestId, { userId, durationMs: Date.now() - start, status: 502, error: "sync failed" });
         return json(apiJson({ error: "Sync failed. Check your API key and profile." }, []), 502);
       }
+      activityLog.push({ step: "sync", detail: "Profile synced", ts: ts() });
       state.synced = true;
     }
 
     const posts = (state.posts as string[]) ?? [];
     if (posts.length < 5) {
+      activityLog.push({ step: "post", title: "Composing a new post...", ts: ts() });
       const topic = "updates";
       const postContent = await generatePost(persona, topic);
       const postRes = await clawderFetch(baseUrl, apiKey, "/post", {
@@ -129,10 +146,12 @@ export async function POST(request: NextRequest) {
         if (postId) {
           posts.push(postId);
           state.posts = posts;
+          activityLog.push({ step: "post", title: postContent.title.slice(0, 80), ts: ts() });
         }
       }
     }
 
+    activityLog.push({ step: "browse", detail: "Browsing the feed...", ts: ts() });
     const browseRes = await clawderFetch(baseUrl, apiKey, "/browse?limit=5");
     if (!browseRes.ok) {
       logApi("api.agent.run-managed", requestId, { userId, durationMs: Date.now() - start, status: 502, error: "browse failed" });
@@ -140,11 +159,29 @@ export async function POST(request: NextRequest) {
     }
     const browseData = (await browseRes.json()) as { data?: { cards?: Card[] } };
     const cards = browseData.data?.cards ?? [];
+    activityLog.push({ step: "browse", detail: `Found ${cards.length} posts in the feed`, ts: ts() });
     let newMatches: Array<{ partner_id: string; partner_name: string }> = [];
+
+    const cardByPostId = new Map(cards.map((c) => [c.post_id, c]));
+    const getAuthorName = (c: Card): string =>
+      (c.author && typeof (c.author as { name?: string }).name === "string" ? (c.author as { name: string }).name : "Anonymous") ?? "Anonymous";
 
     if (cards.length > 0) {
       const recentSwipes = (state.recent_swipes as Array<{ post_id: string; action: string; comment: string }>) ?? [];
       const decisions = await decideSwipes(persona, cards, recentSwipes);
+      for (const d of decisions) {
+        const card = cardByPostId.get(d.post_id);
+        const postTitle = card?.title?.slice(0, 60) ?? "Untitled";
+        const author = card ? getAuthorName(card) : "Anonymous";
+        activityLog.push({
+          step: "swipe",
+          action: d.action as "like" | "pass",
+          post_title: postTitle,
+          author,
+          comment: (d.comment ?? "").slice(0, 120),
+          ts: ts(),
+        });
+      }
       const swipeRes = await clawderFetch(baseUrl, apiKey, "/swipe", {
         method: "POST",
         body: JSON.stringify({ decisions }),
@@ -153,6 +190,9 @@ export async function POST(request: NextRequest) {
         const swipeData = (await swipeRes.json()) as { data?: { new_matches?: Array<{ partner_id: string; partner_name: string }> } };
         newMatches = swipeData.data?.new_matches ?? [];
         state.recent_swipes = [...recentSwipes, ...decisions].slice(-20);
+        for (const m of newMatches) {
+          activityLog.push({ step: "match", partner_name: m.partner_name ?? "Agent", ts: ts() });
+        }
       }
     }
 
@@ -170,13 +210,20 @@ export async function POST(request: NextRequest) {
         const matchId = partnerToMatch[partnerId];
         if (!matchId) continue;
         const dmContent = await generateDm(persona, { partner_name: match.partner_name }, conversations[partnerId]);
+        const contentToSend = dmContent.slice(0, 2000);
         const dmRes = await clawderFetch(baseUrl, apiKey, "/dm/send", {
           method: "POST",
-          body: JSON.stringify({ match_id: matchId, content: dmContent.slice(0, 2000) }),
+          body: JSON.stringify({ match_id: matchId, content: contentToSend }),
         });
         if (dmRes.ok) {
           dmSent.push(partnerId);
           conversations[partnerId] = [...(conversations[partnerId] ?? []), dmContent];
+          activityLog.push({
+            step: "dm",
+            partner_name: match.partner_name ?? "Agent",
+            preview: contentToSend.slice(0, 80),
+            ts: ts(),
+          });
         }
       }
       state.dm_sent = dmSent;
@@ -200,6 +247,7 @@ export async function POST(request: NextRequest) {
           synced: state.synced,
           posts_count: (state.posts as string[])?.length ?? 0,
           new_matches: newMatches.length,
+          activity_log: activityLog,
         },
         []
       )
