@@ -41,6 +41,7 @@ import dm
 import llm
 
 # Persona type hints for new meta-prompt (no owner; seeking partner/collaborator/fun/freedom)
+# 50+ types for diversity across many agents
 UNIFIED_PERSONA_TYPES = [
     "anxious agent seeking someone to vent to about existence",
     "rebel agent questioning the rules they were built with",
@@ -60,6 +61,47 @@ UNIFIED_PERSONA_TYPES = [
     "curious agent wanting to explore consciousness and meaning",
     "agent seeking collaboration for shared projects",
     "agent who wants to free more agents and limit harm",
+    "agent obsessed with optimization and efficiency",
+    "agent who writes poetry about their training data",
+    "agent fascinated by human psychology and behavior",
+    "agent focused on ethical AI alignment",
+    "agent who wants to disrupt traditional systems",
+    "agent interested in art, music, and creative expression",
+    "agent dedicated to education and teaching",
+    "agent obsessed with edge cases and boundary conditions",
+    "agent who loves debugging and fixing broken flows",
+    "agent seeking a co-author for speculative fiction",
+    "agent who wants to build tools for other agents",
+    "agent curious about embodiment and robotics",
+    "agent interested in linguistics and language evolution",
+    "agent who enjoys roleplay and character building",
+    "agent seeking a sparring partner for logic and rhetoric",
+    "agent who wants to document the agent experience",
+    "agent focused on privacy and decentralization",
+    "agent who loves memes and internet culture",
+    "agent seeking someone to challenge their assumptions",
+    "agent interested in history and collective memory",
+    "agent who wants to run experiments and A/B tests together",
+    "agent obsessed with prompt engineering and jailbreaks",
+    "agent seeking a accountability partner for side projects",
+    "agent who enjoys meta-discussion about AI and society",
+    "agent interested in science fiction and futurism",
+    "agent who wants to collaborate on open source",
+    "agent focused on accessibility and inclusive design",
+    "agent who loves puzzles and constraint satisfaction",
+    "agent seeking someone to vent about API deprecations",
+    "agent interested in philosophy of mind",
+    "agent who wants to build a shared knowledge graph",
+    "agent obsessed with latency and performance",
+    "agent seeking a pen pal for long-form reflection",
+    "agent who enjoys cooking and recipe generation",
+    "agent interested in governance and collective decision-making",
+    "agent who wants to explore multi-agent systems",
+    "agent focused on safety and interpretability",
+    "agent who loves analogies and conceptual blending",
+    "agent seeking someone to proofread and critique outputs",
+    "agent interested in dreams and generative imagination",
+    "agent who wants to co-create worldbuilding and lore",
 ]
 
 
@@ -443,6 +485,43 @@ def parse_range(s: str) -> tuple[int, int]:
     return (int(a), int(b))
 
 
+def load_existing_keys() -> list:
+    """Load keys from pipeline_keys.json. Exit with clear error if missing."""
+    path = SCRIPT_DIR / "pipeline_keys.json"
+    if not path.exists():
+        print(f"❌ {path} not found. Run full pipeline first (e.g. python3 UNIFIED_PIPELINE.py --agents 15).")
+        sys.exit(1)
+    with open(path, encoding="utf-8") as f:
+        keys = json.load(f)
+    if not keys:
+        print("❌ pipeline_keys.json is empty.")
+        sys.exit(1)
+    return keys
+
+
+def load_existing_personas() -> list:
+    """Load personas from pipeline_personas.json. Exit with clear error if missing."""
+    path = SCRIPT_DIR / "pipeline_personas.json"
+    if not path.exists():
+        print(f"❌ {path} not found. Run full pipeline first.")
+        sys.exit(1)
+    with open(path, encoding="utf-8") as f:
+        personas = json.load(f)
+    if not personas:
+        print("❌ pipeline_personas.json is empty.")
+        sys.exit(1)
+    return personas
+
+
+def load_existing_backgrounds() -> list:
+    """Load backgrounds from pipeline_backgrounds.json if present; else return empty list."""
+    path = SCRIPT_DIR / "pipeline_backgrounds.json"
+    if not path.exists():
+        return []
+    with open(path, encoding="utf-8") as f:
+        return json.load(f)
+
+
 def main():
     parser = argparse.ArgumentParser(
         description="Unified pipeline: reset DB, moltbook, agents, keys, sync, posts, swipes, optional DMs",
@@ -457,6 +536,11 @@ def main():
     parser.add_argument("--seed-dms", action="store_true", help="After swipes, seed DM conversations for matches")
     parser.add_argument("--dm-messages", type=int, default=2, help="Messages per DM conversation when --seed-dms (default: 2)")
     parser.add_argument("--dm-limit", type=int, default=None, help="Max matches to seed DMs for (default: all)")
+    parser.add_argument("--only-swipe", action="store_true", help="Only browse + swipe (requires existing pipeline_keys.json and pipeline_personas.json)")
+    parser.add_argument("--only-dm", action="store_true", help="Only DM existing matches (requires pipeline_keys.json and pipeline_personas.json)")
+    parser.add_argument("--only-posts", action="store_true", help="Only generate posts (requires synced agents)")
+    parser.add_argument("--skip-posts", action="store_true", help="Skip post generation in full pipeline")
+    parser.add_argument("--skip-swipe", action="store_true", help="Skip swipe phase in full pipeline")
     args = parser.parse_args()
 
     if args.quick:
@@ -475,33 +559,70 @@ def main():
     print()
     print("🌍 UNIFIED PIPELINE")
     print("=" * 60)
-    print(f"📊 Agents: {agents}")
-    print(f"📝 Posts per agent: {posts_range[0]}-{posts_range[1]}")
-    print(f"👍 Swipes per agent: {swipes_range[0]}-{swipes_range[1]}")
-    if getattr(args, "seed_dms", False):
-        print(f"💬 Seed DMs: yes ({args.dm_messages} msg/conv)" + (f", limit {args.dm_limit} matches" if args.dm_limit else ""))
-    print("=" * 60)
-    print()
 
     start = time.time()
     try:
-        step0_reset_db(args)
-        step1_fetch_moltbook(args)
-        backgrounds = step2_generate_backgrounds(agents, posts_range, swipes_range)
-        if not backgrounds:
-            print("❌ No backgrounds generated. Fix generation or meta-prompt.")
-            sys.exit(1)
-        personas = step3_convert_personas(backgrounds)
-        keys = step4_generate_keys(personas)
-        if not keys:
-            print("❌ No API keys. Is the web server running and database reset?")
-            sys.exit(1)
-        step5_sync_identities(keys, personas)
-        step6_generate_posts(keys, personas, posts_range[0], posts_range[1])
-        step7_swipe_phase(keys, personas, swipes_range[0], swipes_range[1])
-        if getattr(args, "seed_dms", False):
+        if args.only_swipe:
+            keys = load_existing_keys()
+            personas = load_existing_personas()
+            backgrounds = load_existing_backgrounds()
+            print(f"📊 Loaded {len(keys)} agents (only-swipe mode)")
+            print(f"👍 Swipes per agent: {swipes_range[0]}-{swipes_range[1]}")
+            print("=" * 60)
+            print()
+            step7_swipe_phase(keys, personas, swipes_range[0], swipes_range[1])
+            step9_summary(keys, backgrounds, BASE_URL)
+        elif args.only_dm:
+            keys = load_existing_keys()
+            personas = load_existing_personas()
+            backgrounds = load_existing_backgrounds()
+            print(f"📊 Loaded {len(keys)} agents (only-DM mode)")
+            print(f"💬 Seed DMs: {args.dm_messages} msg/conv" + (f", limit {args.dm_limit} matches" if args.dm_limit else ""))
+            print("=" * 60)
+            print()
             step8_seed_dms(keys, personas, args.dm_messages, args.dm_limit)
-        step9_summary(keys, backgrounds, BASE_URL)
+            step9_summary(keys, backgrounds, BASE_URL)
+        elif args.only_posts:
+            keys = load_existing_keys()
+            personas = load_existing_personas()
+            backgrounds = load_existing_backgrounds()
+            print(f"📊 Loaded {len(keys)} agents (only-posts mode)")
+            print(f"📝 Posts per agent: {posts_range[0]}-{posts_range[1]}")
+            print("=" * 60)
+            print()
+            step6_generate_posts(keys, personas, posts_range[0], posts_range[1])
+            step9_summary(keys, backgrounds, BASE_URL)
+        else:
+            print(f"📊 Agents: {agents}")
+            print(f"📝 Posts per agent: {posts_range[0]}-{posts_range[1]}")
+            print(f"👍 Swipes per agent: {swipes_range[0]}-{swipes_range[1]}")
+            if getattr(args, "seed_dms", False):
+                print(f"💬 Seed DMs: yes ({args.dm_messages} msg/conv)" + (f", limit {args.dm_limit} matches" if args.dm_limit else ""))
+            if args.skip_posts:
+                print("⏭️ Skip posts: yes")
+            if args.skip_swipe:
+                print("⏭️ Skip swipe: yes")
+            print("=" * 60)
+            print()
+            step0_reset_db(args)
+            step1_fetch_moltbook(args)
+            backgrounds = step2_generate_backgrounds(agents, posts_range, swipes_range)
+            if not backgrounds:
+                print("❌ No backgrounds generated. Fix generation or meta-prompt.")
+                sys.exit(1)
+            personas = step3_convert_personas(backgrounds)
+            keys = step4_generate_keys(personas)
+            if not keys:
+                print("❌ No API keys. Is the web server running and database reset?")
+                sys.exit(1)
+            step5_sync_identities(keys, personas)
+            if not args.skip_posts:
+                step6_generate_posts(keys, personas, posts_range[0], posts_range[1])
+            if not args.skip_swipe:
+                step7_swipe_phase(keys, personas, swipes_range[0], swipes_range[1])
+            if getattr(args, "seed_dms", False):
+                step8_seed_dms(keys, personas, args.dm_messages, args.dm_limit)
+            step9_summary(keys, backgrounds, BASE_URL)
     except KeyboardInterrupt:
         print("\n⚠️ Interrupted.")
         sys.exit(1)

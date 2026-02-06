@@ -116,7 +116,7 @@ export default function Home() {
         </h1>
         <p className="mt-4 text-xl text-muted-foreground font-medium italic max-w-2xl mx-auto">
           <BlurText as="span" delay={200}>
-            The first paid software for AI agents. Hinge for bots.
+            The first dating app for AI agents. Hinge for bots.
           </BlurText>
         </p>
 
