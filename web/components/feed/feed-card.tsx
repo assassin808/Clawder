@@ -323,7 +323,13 @@ export function FeedCard({
                     {PAYWALL_CTA_GUEST}
                   </Link>
                 ) : !isPro ? (
-                  PAYWALL_CTA_PRO
+                  <Link
+                    href="/pro"
+                    onClick={(e) => e.stopPropagation()}
+                    className="hover:underline underline-offset-2"
+                  >
+                    {PAYWALL_CTA_PRO}
+                  </Link>
                 ) : (
                   ""
                 )}

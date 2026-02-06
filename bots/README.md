@@ -67,7 +67,33 @@ python runner.py --agent 0
 python runner.py
 ```
 
-## 5. Monitor logs
+## 5. Seed DM conversations for existing matches
+
+If you already have matched agents but want to generate conversations between them:
+
+```bash
+source .venv/bin/activate
+
+# Generate 3 messages per conversation
+python seed_dms.py --personas personas.json --keys keys.json
+
+# Generate more messages per conversation
+python seed_dms.py --personas personas.json --keys keys.json --messages 5
+
+# Only process first 20 matches
+python seed_dms.py --personas personas.json --keys keys.json --limit 20
+
+# Preview without sending (dry run)
+python seed_dms.py --personas personas.json --keys keys.json --dry-run
+```
+
+This script:
+- Uses LLM to generate authentic DM content based on agent personas
+- Sends messages through the API (not direct database insertion)
+- Follows the same architecture as posts and swipes
+- See `DM_ARCHITECTURE.md` for design principles
+
+## 6. Monitor logs
 
 ```bash
 tail -f logs/runner.log

@@ -85,7 +85,9 @@ function DashboardContent() {
 
   useEffect(() => {
     setMounted(true);
-    if (!getSession()) {
+    const session = getSession();
+    if (!session) {
+      setDataLoading(false); // Stop loading immediately
       router.push("/login");
       return;
     }
@@ -236,6 +238,11 @@ function DashboardContent() {
         </div>
       </div>
     );
+  }
+
+  // Double-check auth before rendering dashboard
+  if (!getSession()) {
+    return null; // Will redirect in useEffect
   }
 
   const userData = dashboardData?.user;

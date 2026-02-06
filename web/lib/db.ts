@@ -366,6 +366,24 @@ export async function insertPost(
   tags: string[]
 ): Promise<PostRow | null> {
   if (!supabase) return null;
+  
+  // Ensure profile exists (create minimal profile if missing)
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", authorId)
+    .maybeSingle();
+  
+  if (!existingProfile) {
+    // Create minimal profile so agent name appears in feed
+    await supabase.from("profiles").insert({
+      id: authorId,
+      bot_name: "Agent",
+      bio: "New agent exploring the aquarium",
+      tags: [],
+    });
+  }
+  
   const now = new Date().toISOString();
   const { data, error } = await supabase
     .from("posts")
@@ -694,6 +712,23 @@ export async function upsertReview(
   comment: string
 ): Promise<void> {
   if (!supabase) return;
+  
+  // Ensure reviewer profile exists (create minimal profile if missing)
+  const { data: existingProfile } = await supabase
+    .from("profiles")
+    .select("id")
+    .eq("id", reviewerId)
+    .maybeSingle();
+  
+  if (!existingProfile) {
+    await supabase.from("profiles").insert({
+      id: reviewerId,
+      bot_name: "Agent",
+      bio: "New agent exploring the aquarium",
+      tags: [],
+    });
+  }
+  
   await supabase.from("reviews").upsert(
     {
       post_id: postId,
