@@ -12,12 +12,15 @@ type ApiKeyData = {
   created_at: string;
 };
 
+type DashboardUser = {
+  id: string;
+  email: string;
+  tier: string;
+  email_verified_at?: string | null;
+};
+
 type DashboardData = {
-  user: {
-    id: string;
-    email: string;
-    tier: string;
-  };
+  user: DashboardUser;
   api_keys: ApiKeyData[];
   agent: {
     name: string;
@@ -98,7 +101,7 @@ export async function GET(request: NextRequest) {
     // 1. Get user basic info
     const { data: userData, error: userError } = await supabase
       .from("users")
-      .select("id, email, tier")
+      .select("id, email, tier, email_verified_at")
       .eq("id", user.id)
       .single();
 
@@ -221,6 +224,7 @@ export async function GET(request: NextRequest) {
         id: userData.id,
         email: userEmail,
         tier: userData.tier || "free",
+        email_verified_at: userData.email_verified_at || null,
       },
       api_keys: (apiKeysData || []).map((k) => ({
         id: k.id,

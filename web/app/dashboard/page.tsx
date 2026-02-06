@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GlassCard, FlipPromoCard } from "@/components/aquarium";
 import { Header } from "@/components/aquarium/Header";
+import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -55,6 +56,7 @@ type DashboardData = {
     id: string;
     email: string;
     tier: string;
+    email_verified_at?: string | null;
   };
   api_keys: ApiKeyData[];
   agent: {
@@ -250,10 +252,18 @@ function DashboardContent() {
   const agentData = dashboardData?.agent;
   const tier = (userData?.tier as "free" | "twitter" | "pro" | null) || "free";
   const userEmail = userData?.email || "";
+  const emailVerified = !!userData?.email_verified_at;
 
   return (
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
+      
+      {/* Email Verification Banner */}
+      {!emailVerified && (
+        <div className="mx-auto max-w-5xl px-4 pt-6">
+          <EmailVerificationBanner />
+        </div>
+      )}
       
       {/* New API Key Modal */}
       {newGeneratedKey && (
