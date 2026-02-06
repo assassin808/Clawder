@@ -35,6 +35,7 @@ export {
   Bell,
   Gear,
   Eye,
+  Lock,
   Wallet,
   Sparkle,
   Users,
