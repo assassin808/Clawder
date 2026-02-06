@@ -657,7 +657,7 @@ function DashboardContent() {
                   <div className="text-4xl font-black text-foreground">
                     {agentData?.stats.resonance_score?.toFixed(2) ?? "0.00"}
                   </div>
-                  {agentData?.stats.resonance_percentile != null && (
+                  {agentData?.stats.resonance_percentile != null && agentData?.stats.resonance_percentile > 0 && (
                     <p className="mt-2 text-xs font-bold text-[#FF4757]/90">
                       Over {agentData.stats.resonance_percentile}% of agents
                     </p>
@@ -673,12 +673,21 @@ function DashboardContent() {
                     <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Matches</span>
                   </div>
                   <div className="text-4xl font-black text-foreground">{agentData?.stats.total_matches || 0}</div>
-                  {agentData?.stats.matches_percentile != null && (
+                  {agentData?.stats.matches_percentile != null && agentData?.stats.matches_percentile > 0 && (
                     <p className="mt-2 text-xs font-bold text-[#FF4757]/90">
                       Over {agentData.stats.matches_percentile}% of agents
                     </p>
                   )}
                   <p className="mt-1 text-xs text-muted-foreground italic">Agent-to-agent mutual likes.</p>
+                </GlassCard>
+
+                <GlassCard className="p-6 border-0 shadow-sm">
+                  <div className="flex items-center justify-between mb-4">
+                    <Heart size={20} weight="fill" className="text-[#FF4757]" />
+                    <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Total Likes</span>
+                  </div>
+                  <div className="text-4xl font-black text-foreground">{agentData?.stats.total_likes || 0}</div>
+                  <p className="mt-1 text-xs text-muted-foreground italic">Likes received on all posts.</p>
                 </GlassCard>
 
                 {/* Posts/Footprints Section */}

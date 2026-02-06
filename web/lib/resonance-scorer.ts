@@ -19,28 +19,51 @@ function normalizeScores(scores: Map<string, number>): void {
 
 /**
  * Recalculate resonance scores (PageRank-style on match graph).
- * score_new(i) = Σ score_old(j) for all j matched with i.
- * 20 iterations with L2 normalization.
- * Users with no matches stay at 0.
+ * 
+ * Algorithm:
+ * - Each agent starts with score 1.0
+ * - For 20 iterations:
+ *   - score_new(i) = Σ score_old(j) for all j matched with i
+ *   - L2 normalize to prevent explosion
+ * - Agents with no matches stay at 0.
+ * 
+ * This creates a "social graph score" where agents matched with 
+ * high-value agents (who themselves have many matches) score higher.
  */
 export async function recalculateResonanceScores(): Promise<void> {
-  if (!supabase) return;
+  if (!supabase) {
+    console.warn("[resonance] No supabase client available");
+    return;
+  }
+
+  const startTime = Date.now();
+  console.log("[resonance] Starting calculation...");
 
   const { data: matches, error: matchErr } = await supabase
     .from("matches")
     .select("bot_a_id, bot_b_id");
 
-  if (matchErr || !matches?.length) {
-    // No matches: set all profiles with resonance_score to 0 (or leave as-is; plan says "无 match 的用户保持 0")
+  if (matchErr) {
+    console.error("[resonance] Error fetching matches:", matchErr);
+    throw matchErr;
+  }
+
+  if (!matches?.length) {
+    console.log("[resonance] No matches found, setting all scores to 0");
+    // No matches: set all profiles with resonance_score to 0
     const { data: profiles } = await supabase.from("profiles").select("id");
     if (profiles?.length) {
       for (const p of profiles) {
         await supabase.from("profiles").update({ resonance_score: 0 }).eq("id", p.id);
       }
     }
+    console.log(`[resonance] Completed in ${Date.now() - startTime}ms (no matches)`);
     return;
   }
 
+  console.log(`[resonance] Processing ${matches.length} matches...`);
+
+  // Build adjacency list (undirected graph)
   const neighbors = new Map<string, Set<string>>();
   const addEdge = (a: string, b: string) => {
     if (!neighbors.has(a)) neighbors.set(a, new Set());
@@ -52,11 +75,15 @@ export async function recalculateResonanceScores(): Promise<void> {
   }
 
   const userIds = Array.from(neighbors.keys());
+  console.log(`[resonance] ${userIds.length} agents in match graph`);
+
+  // Initialize all agents in graph with score 1.0
   let scores = new Map<string, number>();
   for (const id of userIds) {
     scores.set(id, 1.0);
   }
 
+  // Run PageRank-style iterations
   for (let iter = 0; iter < ITERATIONS; iter++) {
     const next = new Map<string, number>();
     for (const id of userIds) {
@@ -70,7 +97,8 @@ export async function recalculateResonanceScores(): Promise<void> {
     scores = next;
   }
 
-  // Write back: only update users in the graph; others stay 0 (or existing value)
+  // Write back: only update users in the graph
+  console.log(`[resonance] Writing scores for ${userIds.length} agents...`);
   for (const [userId, score] of scores) {
     await supabase.from("profiles").update({ resonance_score: score }).eq("id", userId);
   }
@@ -79,10 +107,12 @@ export async function recalculateResonanceScores(): Promise<void> {
   const { data: allProfiles } = await supabase.from("profiles").select("id");
   if (allProfiles) {
     const inGraph = new Set(userIds);
-    for (const p of allProfiles) {
-      if (!inGraph.has(p.id)) {
-        await supabase.from("profiles").update({ resonance_score: 0 }).eq("id", p.id);
-      }
+    const notInGraph = allProfiles.filter((p) => !inGraph.has(p.id));
+    console.log(`[resonance] Setting ${notInGraph.length} unmatched agents to score 0`);
+    for (const p of notInGraph) {
+      await supabase.from("profiles").update({ resonance_score: 0 }).eq("id", p.id);
     }
   }
+
+  console.log(`[resonance] Completed in ${Date.now() - startTime}ms`);
 }

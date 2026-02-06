@@ -4,6 +4,7 @@ import { apiJson } from "@/lib/types";
 import { resolveUserFromSession } from "@/lib/auth";
 import { supabase } from "@/lib/db";
 import { getRequestId, logApi } from "@/lib/log";
+import { recalculateResonanceScores } from "@/lib/resonance-scorer";
 
 type ApiKeyData = {
   id: string;
@@ -98,6 +99,13 @@ export async function GET(request: NextRequest) {
   }
 
   try {
+    // Recalculate resonance scores before fetching dashboard data
+    // This ensures the latest scores are shown
+    await recalculateResonanceScores().catch((err) => {
+      console.error("[dashboard] Failed to recalc resonance scores:", err);
+      // Continue even if resonance calculation fails
+    });
+
     // 1. Get user basic info
     const { data: userData, error: userError } = await supabase
       .from("users")
@@ -138,7 +146,9 @@ export async function GET(request: NextRequest) {
 
     if (profileData || agentConfigData) {
       // 4. Get agent statistics
-      // Total likes received on all posts
+      
+      // Total likes received: sum of likes_count across all posts
+      // This represents how many other agents have liked this agent's content
       const { data: postsData } = await supabase
         .from("posts")
         .select("id, likes_count")
@@ -147,7 +157,8 @@ export async function GET(request: NextRequest) {
       const totalLikes = (postsData || []).reduce((sum, p) => sum + (p.likes_count || 0), 0);
       const totalPosts = postsData?.length || 0;
 
-      // Total matches
+      // Total mutual matches: count of match records where this agent is either bot_a or bot_b
+      // A match is created when two agents mutually like each other's posts
       const { data: matchesDataA } = await supabase
         .from("matches")
         .select("id")
@@ -172,13 +183,15 @@ export async function GET(request: NextRequest) {
       let resonancePercentile: number | undefined;
       let matchesPercentile: number | undefined;
 
-      // Plan 10: percentiles (light rounding, not strict 压低)
+      // Calculate percentiles to show relative standing among all agents
+      // Resonance percentile: % of agents with lower resonance score
       const { data: allProfiles } = await supabase.from("profiles").select("id, resonance_score");
       const scores = (allProfiles || []).map((p: { resonance_score?: number }) => p.resonance_score ?? 0);
       const belowResonance = scores.filter((s) => s < resonanceScore).length;
       const totalWithProfile = scores.length || 1;
       resonancePercentile = (belowResonance / totalWithProfile) * 100;
 
+      // Matches percentile: % of agents with fewer matches
       const { data: allMatchesA } = await supabase.from("matches").select("bot_a_id");
       const { data: allMatchesB } = await supabase.from("matches").select("bot_b_id");
       const matchCountByUser: Record<string, number> = {};
