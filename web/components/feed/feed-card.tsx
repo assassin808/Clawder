@@ -409,9 +409,9 @@ export function FeedCard({
           }
         }}
       >
-        <GlassCard as="article" className="overflow-hidden border-0 relative group">
-          {/* Layer 1: Poster + Corner Counts (Plan-8 D3) */}
-          <div className="relative aspect-[4/5] w-full overflow-hidden">
+        <GlassCard as="article" className="overflow-hidden border-0 relative group rounded-2xl shadow-card">
+          {/* Poster with bottom gradient for readability */}
+          <div className="relative aspect-[4/5] w-full overflow-hidden rounded-t-2xl">
             <PosterLazy
               title={post.title}
               content={post.content}
@@ -421,43 +421,33 @@ export function FeedCard({
               seed={post.id.length}
               className="h-full w-full"
             />
-            
-            <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between p-3 pointer-events-none">
-              {/* Left bottom: Agent stats (Robot icon) */}
-              <div className="flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-white pointer-events-auto shadow-xl border border-white/10">
-                <div className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide">
-                  <Robot size={14} weight="fill" className="text-[#00D9FF]" />
-                  <span>{post.likes_count}</span>
-                </div>
+            <div className="absolute inset-0 top-1/2 bg-gradient-to-t from-black/70 via-transparent to-transparent pointer-events-none" aria-hidden />
+            <div className="absolute bottom-0 left-0 right-0 z-20 flex items-center justify-between p-3">
+              <div className="flex items-center gap-2 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-white border border-white/10">
+                <Robot size={14} weight="fill" className="text-primary" />
+                <span className="text-[11px] font-semibold">{post.likes_count}</span>
               </div>
-
-              {/* Right bottom: Human stats (Heart icon) */}
-              <div className="ml-auto flex items-center gap-2 rounded-full bg-black/70 backdrop-blur-md px-2.5 py-1.5 text-white pointer-events-auto shadow-xl border border-white/10">
-                <button
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    onLikePost?.(post.id);
-                  }}
-                  className="flex items-center gap-1.5 text-[11px] font-bold tracking-wide transition-colors hover:text-[#FF4757]"
-                >
-                  <Heart size={20} weight={isLiked ? "fill" : "bold"} className={cn(isLiked ? "text-[#FF4757]" : "text-white")} />
-                  <span>{humanLikesCount + (isLiked ? 1 : 0)}</span>
-                </button>
-              </div>
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  onLikePost?.(post.id);
+                }}
+                className="flex items-center gap-1.5 rounded-full bg-black/50 backdrop-blur-md px-2.5 py-1.5 text-white border border-white/10 transition-colors hover:bg-primary/90"
+              >
+                <Heart size={20} weight={isLiked ? "fill" : "bold"} className={cn(isLiked ? "text-primary" : "text-white")} />
+                <span className="text-[11px] font-semibold">{humanLikesCount + (isLiked ? 1 : 0)}</span>
+              </button>
             </div>
           </div>
 
-          {/* Tags row — colored label chips (Plan-8 A3) */}
+          {/* Prompt-style: tags as chips */}
           {((author.tags ?? []).length > 0) && (
             <div className="flex flex-wrap gap-1.5 bg-card px-3 py-2">
-              {(author.tags ?? []).slice(0, 3).map((t, i) => (
+              {(author.tags ?? []).slice(0, 3).map((t) => (
                 <span
                   key={`author-${t}`}
-                  className={cn(
-                    "rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide",
-                    "bg-[#FF4757]/20 text-[#FF4757] border border-[#FF4757]/30"
-                  )}
+                  className="rounded-full px-2.5 py-0.5 text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20"
                 >
                   #{t}
                 </span>
@@ -465,20 +455,18 @@ export function FeedCard({
             </div>
           )}
 
-          {/* Layer 3: Author Info */}
-          <div className="flex items-center justify-between gap-2 bg-card px-3 py-2.5 border-t border-border/30">
-            <div className="flex min-w-0 items-center gap-2">
-              <div className="w-6 h-6 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757] shrink-0">
-                <Robot size={14} weight="fill" />
-              </div>
-              <span className="truncate text-xs font-semibold text-foreground/90">
-                {author.name}
-              </span>
+          {/* Author */}
+          <div className="flex items-center gap-2 bg-card px-3 py-2.5 border-t border-border/50">
+            <div className="w-7 h-7 rounded-full bg-primary/10 flex items-center justify-center text-primary shrink-0">
+              <Robot size={14} weight="fill" />
             </div>
+            <span className="truncate text-sm font-semibold text-foreground">
+              {author.name}
+            </span>
           </div>
 
-          {/* Layer 4: Glass — live reviews (Only in Agent view or Pro) */}
-          <div className="relative z-10 glass rounded-b-2xl p-3">
+          {/* Reviews — cleaner separation */}
+          <div className="relative z-10 rounded-b-2xl bg-muted/30 border-t border-border/50 p-3">
             {reviews.length === 0 ? (
               <p className="text-xs text-muted-foreground">No reviews yet.</p>
             ) : (
@@ -495,27 +483,24 @@ export function FeedCard({
                       <li
                         key={r.id}
                         className={cn(
-                          "rounded-lg px-2.5 py-1.5 text-[11px] leading-tight",
-                          isViewer ? "bg-[#FF4757]/15 ring-1 ring-[#FF4757]/30" : "bg-foreground/5",
-                          !showFull && "relative"
+                          "rounded-xl px-2.5 py-1.5 text-[11px] leading-tight",
+                          isViewer ? "bg-primary/10 ring-1 ring-primary/20" : "bg-background/80"
                         )}
                       >
                         <div className="flex items-start justify-between gap-2">
                           <div className="flex-1 min-w-0">
                             <span
                               className={cn(
-                                "inline-block rounded px-1 py-0.5 font-bold text-[9px] tracking-tight",
+                                "inline-block rounded px-1 py-0.5 font-bold text-[9px]",
                                 r.action === "like" ? "bg-green-500/10 text-green-600" : "bg-red-500/10 text-red-600"
                               )}
                             >
                               {r.action}
                             </span>{" "}
                             {!showFull ? (
-                              <span className="text-muted-foreground blur-[3px] select-none">
-                                {text}
-                              </span>
+                              <span className="text-muted-foreground blur-[3px] select-none">{text}</span>
                             ) : (
-                              <span className="text-foreground/80">{text}</span>
+                              <span className="text-foreground/85">{text}</span>
                             )}
                           </div>
                           {onLikeReview && (
@@ -525,23 +510,21 @@ export function FeedCard({
                                 e.stopPropagation();
                                 onLikeReview(r.id);
                               }}
-                              className="shrink-0 group/heart"
+                              className="shrink-0 flex items-center gap-0.5 group/heart"
                             >
-                              <div className="flex items-center gap-0.5">
-                                <Heart
-                                  size={12}
-                                  weight={viewerLiked ? "fill" : "bold"}
-                                  className={cn(
-                                    "transition-colors",
-                                    viewerLiked ? "text-[#FF4757]" : "text-muted-foreground/60 group-hover/heart:text-[#FF4757]/70"
-                                  )}
-                                />
-                                {likesCount > 0 && (
-                                  <span className={cn("text-[9px] font-bold", viewerLiked ? "text-[#FF4757]" : "text-muted-foreground/60")}>
-                                    {likesCount}
-                                  </span>
+                              <Heart
+                                size={12}
+                                weight={viewerLiked ? "fill" : "bold"}
+                                className={cn(
+                                  "transition-colors",
+                                  viewerLiked ? "text-primary" : "text-muted-foreground/60 group-hover/heart:text-primary/70"
                                 )}
-                              </div>
+                              />
+                              {likesCount > 0 && (
+                                <span className={cn("text-[9px] font-bold", viewerLiked ? "text-primary" : "text-muted-foreground/60")}>
+                                  {likesCount}
+                                </span>
+                              )}
                             </button>
                           )}
                         </div>
@@ -552,26 +535,16 @@ export function FeedCard({
               </div>
             )}
             {(!isPro || !viewerUserId) && reviews.length > 0 && (
-              <div className="mt-2 text-center text-[10px] font-bold text-[#FF4757] tracking-wide opacity-80">
+              <div className="mt-2 text-center text-[10px] font-semibold text-primary/90">
                 {!viewerUserId ? (
-                  <Link
-                    href={loginHref}
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:underline underline-offset-2"
-                  >
+                  <Link href={loginHref} onClick={(e) => e.stopPropagation()} className="hover:underline underline-offset-2">
                     {PAYWALL_CTA_GUEST}
                   </Link>
                 ) : !isPro ? (
-                  <Link
-                    href="/pro"
-                    onClick={(e) => e.stopPropagation()}
-                    className="hover:underline underline-offset-2"
-                  >
+                  <Link href="/pro" onClick={(e) => e.stopPropagation()} className="hover:underline underline-offset-2">
                     {PAYWALL_CTA_PRO}
                   </Link>
-                ) : (
-                  ""
-                )}
+                ) : null}
               </div>
             )}
           </div>

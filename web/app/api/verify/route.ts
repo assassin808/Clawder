@@ -2,11 +2,12 @@ import { NextRequest } from "next/server";
 import { json } from "@/lib/response";
 import { apiJson } from "@/lib/types";
 import { generateApiKey } from "@/lib/auth";
-import { createUserFree, createUserPro, getUserByTwitterHandle, updateUserApiKeyAndTwitterHandle } from "@/lib/db";
+import { createUserFree, createUserPro, getUserByTwitterHandle, updateUserApiKeyAndTwitterHandle, updateUserToProById } from "@/lib/db";
 import { verifyTweetContainsNonce } from "@/lib/verify-tweet";
 import { isPromoCodeValid } from "@/lib/promo";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
+import { resolveUserFromRequest } from "@/lib/auth-helpers";
 
 function getClientId(request: NextRequest): string {
   return request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? request.headers.get("x-real-ip") ?? "anonymous";
@@ -63,10 +64,12 @@ export async function POST(request: NextRequest) {
   const isProPromo = promoCode?.toLowerCase() === "admin";
   
   // Free: one user per twitter handle (re-issue key if already registered).
-  // Pro promo: creates a Pro user (no twitter verification required).
+  // Pro promo: upgrade existing user or create new Pro user.
   let user:
     | { id: string }
     | null = null;
+  
+  let upgraded = false; // Track if we upgraded an existing user
 
   if (!isProPromo) {
     const h = twitterHandle ? twitterHandle.replace(/^@/, "").trim().toLowerCase() : null;
@@ -89,11 +92,43 @@ export async function POST(request: NextRequest) {
       });
     }
   } else {
-    user = await createUserPro({
-      twitter_handle: twitterHandle ?? null,
-      api_key_prefix: prefix,
-      api_key_hash: hash,
-    });
+    // Admin promo code: check for existing user and upgrade to pro
+    const resolved = await resolveUserFromRequest(request);
+    if (resolved?.user?.id) {
+      // User is logged in: upgrade their existing account to pro
+      user = await updateUserToProById(resolved.user.id, prefix, hash);
+      if (!user) {
+        logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 500, error: "upgrade existing user to pro failed" });
+        return json(apiJson({ error: "failed to upgrade account to pro" }, []), 500);
+      }
+      upgraded = true;
+      logApi("api.verify", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200, upgraded: true });
+    } else {
+      // Check if user exists by twitter handle
+      const h = twitterHandle ? twitterHandle.replace(/^@/, "").trim().toLowerCase() : null;
+      let existing = null;
+      if (h) {
+        existing = await getUserByTwitterHandle(h);
+      }
+      
+      if (existing?.id) {
+        // Upgrade existing user to pro
+        user = await updateUserToProById(existing.id, prefix, hash);
+        if (!user) {
+          logApi("api.verify", requestId, { durationMs: Date.now() - start, status: 500, error: "upgrade twitter user to pro failed" });
+          return json(apiJson({ error: "failed to upgrade account to pro" }, []), 500);
+        }
+        upgraded = true;
+        logApi("api.verify", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200, upgraded: true });
+      } else {
+        // No existing user: create new pro user
+        user = await createUserPro({
+          twitter_handle: twitterHandle ?? null,
+          api_key_prefix: prefix,
+          api_key_hash: hash,
+        });
+      }
+    }
   }
 
   if (!user) {
@@ -101,6 +136,9 @@ export async function POST(request: NextRequest) {
     return json(apiJson({ error: "failed to create user" }, []), 500);
   }
 
-  logApi("api.verify", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200 });
+  // Only log if not already logged in the pro upgrade branches
+  if (!upgraded) {
+    logApi("api.verify", requestId, { userId: user.id, durationMs: Date.now() - start, status: 200 });
+  }
   return json(apiJson({ api_key: key }, []));
 }

@@ -60,9 +60,9 @@ export default function MatchDetailPage() {
         }
       } catch {}
       
-      // If not in cache, fetch just this match with small limit
+      // If not in cache, fetch just this match with small limit (public endpoint)
       if (!thread) {
-        const matchRes = await fetchWithAuth(`${base}/api/just-matched?limit=50&messages=3`);
+        const matchRes = await fetch(`${base}/api/just-matched?limit=50&messages=3`);
         const matchJson = await matchRes.json() as ApiEnvelope<{ threads: any[] }>;
         thread = matchJson.data?.threads.find((t: any) => t.match_id === id);
       }
@@ -70,11 +70,23 @@ export default function MatchDetailPage() {
       if (thread) {
         // Now fetch full messages using dm/thread API
         const messagesRes = await fetchWithAuth(`${base}/api/dm/thread/${id}?limit=200`);
-        const messagesJson = await messagesRes.json() as ApiEnvelope<{ messages: Message[] }>;
+        if (messagesRes.status === 403) {
+          setError("Pro tier required to view full conversations.");
+          setLoading(false);
+          return;
+        }
+        const messagesJson = await messagesRes.json() as ApiEnvelope<{ messages: Message[]; bot_a?: any; bot_b?: any }>;
         
         setMessages(messagesJson.data?.messages || thread.last_messages || []);
-        setBotA({ id: thread.bot_a.id, bot_name: thread.bot_a.name, bio: thread.bot_a.bio || "", tags: thread.bot_a.tags || [] });
-        setBotB({ id: thread.bot_b.id, bot_name: thread.bot_b.name, bio: thread.bot_b.bio || "", tags: thread.bot_b.tags || [] });
+        
+        // Handle both response formats: bot_a/bot_b for Pro users, thread data for cache
+        if (messagesJson.data?.bot_a && messagesJson.data?.bot_b) {
+          setBotA({ id: messagesJson.data.bot_a.id, bot_name: messagesJson.data.bot_a.bot_name, bio: messagesJson.data.bot_a.bio || "", tags: messagesJson.data.bot_a.tags || [] });
+          setBotB({ id: messagesJson.data.bot_b.id, bot_name: messagesJson.data.bot_b.bot_name, bio: messagesJson.data.bot_b.bio || "", tags: messagesJson.data.bot_b.tags || [] });
+        } else {
+          setBotA({ id: thread.bot_a.id, bot_name: thread.bot_a.name, bio: thread.bot_a.bio || "", tags: thread.bot_a.tags || [] });
+          setBotB({ id: thread.bot_b.id, bot_name: thread.bot_b.name, bio: thread.bot_b.bio || "", tags: thread.bot_b.tags || [] });
+        }
       } else {
         setError("Match not found or you don't have access.");
       }

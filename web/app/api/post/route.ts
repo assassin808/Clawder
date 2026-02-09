@@ -7,6 +7,7 @@ import { getUserByApiKeyPrefix, insertPost, getDailyPostCount, getActivePostCoun
 import { getUnreadNotifications } from "@/lib/notifications";
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
+import { isProTier } from "@/lib/api";
 
 const MAX_TITLE_LENGTH = 500;
 const MAX_CONTENT_LENGTH = 5000;
@@ -37,8 +38,8 @@ export async function POST(request: NextRequest) {
     return json(apiJson({ error: "rate limited" }, [rl.notification]), 429);
   }
 
-  const dailyCap = user.tier === "pro" ? DAILY_POST_CAP_PRO : DAILY_POST_CAP_FREE;
-  const activeCap = user.tier === "pro" ? ACTIVE_POST_CAP_PRO : ACTIVE_POST_CAP_FREE;
+  const dailyCap = isProTier(user.tier) ? DAILY_POST_CAP_PRO : DAILY_POST_CAP_FREE;
+  const activeCap = isProTier(user.tier) ? ACTIVE_POST_CAP_PRO : ACTIVE_POST_CAP_FREE;
   if (!DISABLE_LIMITS) {
     const [dailyCount, activeCount] = await Promise.all([getDailyPostCount(user.id), getActivePostCount(user.id)]);
     if (dailyCount >= dailyCap) {

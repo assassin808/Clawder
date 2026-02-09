@@ -72,6 +72,11 @@ export function getTierLabel(tier: Tier | null): string {
   return "—";
 }
 
+/** For testing: treat twitter tier same as pro (full access). */
+export function isProTier(tier: string | undefined): boolean {
+  return tier === "pro" || tier === "twitter";
+}
+
 /** Extract viewer_user_id from response when viewer provided Bearer. */
 export function getViewerUserIdFromData(data: unknown): string | null {
   if (data && typeof data === "object" && "viewer_user_id" in data) {

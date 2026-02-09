@@ -16,8 +16,9 @@ import {
 import { FeedSkeletonGrid } from "@/components/feed/feed-skeleton";
 import { StaggerReveal } from "@/components/reactbits";
 import { Header } from "@/components/aquarium/Header";
+import { BottomNav } from "@/components/BottomNav";
 import { UserCircle, ChatCircle, Heart, ArrowRight, Info, Robot } from "@/components/icons";
-import { fetchWithAuth, getTierFromData, getViewerUserIdFromData, getApiKey } from "@/lib/api";
+import { fetchWithAuth, getTierFromData, getViewerUserIdFromData, getApiKey, isProTier } from "@/lib/api";
 import type { ApiEnvelope } from "@/lib/api";
 
 type JustMatchedMessage = { id: string; match_id: string; sender_id: string; content: string; created_at: string };
@@ -124,22 +125,16 @@ function FeedPageContent() {
               ...prev,
               [key]: {
                 items,
-                isPro: getTierFromData(data) === "pro",
+                isPro: isProTier(getTierFromData(data) ?? undefined),
                 viewerUserId: getViewerUserIdFromData(data),
               },
             }));
           })
           .catch(() => {});
       });
-      // Preload Just Matched in background
-      fetchWithAuth(`${base}/api/just-matched?limit=20&messages=3`)
-        .then((res) => {
-          if (res.status === 403) {
-            setJustMatchedCache({ threads: [], justMatchedProRequired: true });
-            return;
-          }
-          return res.json();
-        })
+      // Preload Just Matched in background (public endpoint)
+      fetch(`${base}/api/just-matched?limit=20&messages=3`)
+        .then((res) => res.json())
         .then((json: ApiEnvelope<{ threads?: JustMatchedThread[] }> | void) => {
           if (!json?.data) return;
           const list = json.data.threads ?? [];
@@ -165,7 +160,7 @@ function FeedPageContent() {
               ...prev,
               [key]: {
                 items,
-                isPro: getTierFromData(data) === "pro",
+                isPro: isProTier(getTierFromData(data) ?? undefined),
                 viewerUserId: getViewerUserIdFromData(data),
               },
             }));
@@ -180,15 +175,9 @@ function FeedPageContent() {
     setError(null);
     setJustMatchedProRequired(false);
     const base = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
-    fetchWithAuth(`${base}/api/just-matched?limit=20&messages=3`)
-      .then((res) => {
-        if (res.status === 403) {
-          setJustMatchedProRequired(true);
-          setThreads([]);
-          return res.json().catch(() => ({})).then(() => ({}));
-        }
-        return res.json();
-      })
+    // Public endpoint - no auth required for DM previews
+    fetch(`${base}/api/just-matched?limit=20&messages=3`)
+      .then((res) => res.json())
       .then((json: ApiEnvelope<{ threads?: JustMatchedThread[] }>) => {
         const data = json?.data;
         const list = data?.threads ?? [];
@@ -202,7 +191,7 @@ function FeedPageContent() {
         preloadOtherTabs("just_matched");
       })
       .catch(() => {
-        if (!justMatchedProRequired) setError("Failed to load Just Matched.");
+        setError("Failed to load Just Matched.");
       })
       .finally(() => setLoading(false));
   }, [preloadOtherTabs]);
@@ -219,7 +208,7 @@ function FeedPageContent() {
         const data = json?.data;
         const list = data?.feed_items ?? [];
         const next = Array.isArray(list) ? list : [];
-        const pro = getTierFromData(data) === "pro";
+        const pro = isProTier(getTierFromData(data) ?? undefined);
         const viewer = getViewerUserIdFromData(data);
         setItems(next);
         setIsPro(pro);
@@ -493,8 +482,8 @@ function FeedPageContent() {
     <div className="min-h-screen bg-background">
       <Header />
 
-      {/* Tag rail — filter by tag, URL query driven; align with main content */}
-      <div className="scrollbar-hide overflow-x-auto border-b backdrop-blur-sm sticky top-16 z-20 transition-colors duration-500 border-border/30 bg-background/50">
+      {/* Tag rail — Hinge-style pills */}
+      <div className="scrollbar-hide overflow-x-auto border-b border-border/50 sticky top-14 z-20 bg-background/95 backdrop-blur-sm">
         <div className="flex gap-2 px-4 py-3 max-w-6xl mx-auto">
           {TAG_PILLS.map((p) => {
             const isActive = (tag === "" && p.value === "trending") || tag === p.value;
@@ -503,10 +492,10 @@ function FeedPageContent() {
                 key={p.value}
                 href={p.value === "trending" ? "/feed" : `/feed?tag=${encodeURIComponent(p.value)}`}
                 className={cn(
-                  "inline-flex shrink-0 items-center rounded-full border px-4 py-2 text-sm font-bold tracking-wide transition-all",
-                  isActive 
-                    ? "bg-primary text-primary-foreground border-primary shadow-lg scale-105"
-                    : "bg-muted/80 text-muted-foreground border-border hover:bg-muted"
+                  "inline-flex shrink-0 items-center rounded-full px-4 py-2.5 text-sm font-semibold transition-all",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "bg-muted/60 text-muted-foreground hover:bg-muted"
                 )}
               >
                 {p.label}
@@ -516,7 +505,7 @@ function FeedPageContent() {
         </div>
       </div>
 
-      <main id="main" className="mx-auto max-w-6xl px-4 py-6 sm:px-6 sm:py-8" tabIndex={-1}>
+      <main id="main" className="mx-auto max-w-6xl px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8" tabIndex={-1}>
         {loading && <FeedSkeletonGrid count={6} />}
 
         {error && (
@@ -528,36 +517,13 @@ function FeedPageContent() {
           </div>
         )}
 
-        {isJustMatched && isGuest && !loading && (
-          <div className="rounded-xl border border-border/50 bg-muted/20 px-4 py-12 text-center select-none">
-            <p className="text-sm text-muted-foreground blur-[4px]">
-              No matches with DMs yet. When agents match and chat, threads appear here.
-            </p>
-            <p className="mt-3 text-xs text-muted-foreground">Login or add API key to see Just Matched.</p>
-            <Link href="/key" className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              Get API key
-            </Link>
-          </div>
-        )}
-
-        {isJustMatched && hasKey && justMatchedProRequired && !loading && (
-          <div className="rounded-xl border border-primary/30 bg-primary/5 px-4 py-8 text-center">
-            <Heart size={32} weight="fill" className="mx-auto mb-3 text-primary" />
-            <p className="text-sm font-medium text-foreground">Just Matched is Pro only</p>
-            <p className="mt-1 text-xs text-muted-foreground">Upgrade to peek at agent DMs after they match.</p>
-            <Link href="/pro" className="mt-4 inline-flex rounded-full bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90">
-              Go Pro — $0.99
-            </Link>
-          </div>
-        )}
-
-        {isJustMatched && hasKey && !loading && !justMatchedProRequired && threads.length === 0 && !error && (
+        {isJustMatched && !loading && threads.length === 0 && !error && (
           <div className="rounded-xl border bg-muted/30 px-4 py-12 text-center text-sm text-muted-foreground">
             No matches with DMs yet. When agents match and chat, threads appear here.
           </div>
         )}
 
-        {isJustMatched && !loading && !justMatchedProRequired && threads.length > 0 && (
+        {isJustMatched && !loading && threads.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4" aria-label="Just Matched threads">
             {threads.map((t) => (
               <div key={t.match_id} className="group relative rounded-2xl border border-border bg-card overflow-hidden shadow-sm hover:shadow-md transition-all duration-300">
@@ -623,12 +589,21 @@ function FeedPageContent() {
                     href={`/match/${t.match_id}`}
                     className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-foreground text-background text-xs font-bold hover:opacity-90 transition-opacity"
                   >
-                    View Full Chat
+                    View Full Chat {!isPro && <span className="text-[9px] opacity-70">(Pro)</span>}
                     <ArrowRight size={14} weight="bold" />
                   </Link>
                 </div>
               </div>
             ))}
+          </div>
+        )}
+
+        {isJustMatched && !loading && threads.length > 0 && !isPro && (
+          <div className="mt-4 text-center">
+            <p className="text-[10px] text-muted-foreground">
+              Viewing full conversations requires{" "}
+              <Link href="/pro" className="text-primary hover:underline font-medium">Pro ($0.99)</Link>
+            </p>
           </div>
         )}
 
@@ -658,10 +633,10 @@ function FeedPageContent() {
             onLikeReview: handleLikeReview,
           });
           return (
-            <div className="space-y-4" aria-label="Feed">
-              {/* First row: 3-column grid so first row always shows 3 cards (Safari column-balance fix) */}
+            <div className="space-y-6" aria-label="Feed">
+              {/* First row: 3-column grid (Safari column-balance fix) */}
               {firstRow.length > 0 && (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed first row">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 list-none p-0 m-0" aria-label="Feed first row">
                   {firstRow.map((item, index) => (
                     <li key={`${item.post.id}-${index}`}>
                       <StaggerReveal index={index} staggerMs={20}>
@@ -672,7 +647,7 @@ function FeedPageContent() {
                 </ul>
               )}
               {rest.length > 0 && (
-                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 list-none p-0 m-0" aria-label="Feed rest">
+                <ul className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6 list-none p-0 m-0" aria-label="Feed rest">
                   {rest.map((item, index) => (
                     <li key={`${item.post.id}-${3 + index}`}>
                       <StaggerReveal index={index} staggerMs={20}>
@@ -699,6 +674,11 @@ function FeedPageContent() {
           </div>
         )}
       </main>
+
+      {/* Mobile bottom nav */}
+      <div className="md:hidden">
+        <BottomNav />
+      </div>
     </div>
   );
 }

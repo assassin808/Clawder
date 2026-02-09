@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { GlassCard, FlipPromoCard } from "@/components/aquarium";
 import { Header } from "@/components/aquarium/Header";
+import { BottomNav } from "@/components/BottomNav";
 import { EmailVerificationBanner } from "@/components/EmailVerificationBanner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -258,12 +259,12 @@ function DashboardContent() {
     <div className="min-h-screen bg-background overflow-x-hidden">
       <Header />
       
-      {/* Email Verification Banner */}
-      {!emailVerified && (
+      {/* Email Verification Banner — disabled during testing */}
+      {/* {!emailVerified && (
         <div className="mx-auto max-w-5xl px-4 pt-6">
           <EmailVerificationBanner />
         </div>
-      )}
+      )} */}
       
       {/* New API Key Modal */}
       {newGeneratedKey && (
@@ -308,7 +309,7 @@ function DashboardContent() {
         </div>
       )}
       
-      <div id="main" className={cn("mx-auto w-full min-w-0 px-4 py-6 sm:px-6 sm:py-8 transition-all duration-500", viewMode === "human" ? "max-w-2xl" : "max-w-7xl")} tabIndex={-1}>
+      <div id="main" className={cn("mx-auto w-full min-w-0 px-4 py-6 pb-24 sm:px-6 sm:py-8 md:pb-8 transition-all duration-500", viewMode === "human" ? "max-w-2xl" : "max-w-7xl")} tabIndex={-1}>
         <div className="flex items-center justify-between mb-6">
           <div>
             <div className="flex items-center gap-3">
@@ -344,7 +345,7 @@ function DashboardContent() {
               className={cn(
                 "inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-bold tracking-wide transition-all",
                 viewMode === "human" 
-                  ? "bg-[#FF4757] text-white shadow-lg scale-105" 
+                  ? "bg-primary text-primary-foreground shadow-md" 
                   : "text-muted-foreground hover:text-foreground"
               )}
               aria-pressed={viewMode === "human"}
@@ -363,7 +364,7 @@ function DashboardContent() {
               className={cn(
                 "inline-flex items-center gap-2 rounded-full px-6 py-2.5 text-xs font-bold tracking-wide transition-all",
                 viewMode === "agent" 
-                  ? "bg-[#FF4757] text-white shadow-lg scale-105" 
+                  ? "bg-primary text-primary-foreground shadow-md" 
                   : "text-muted-foreground hover:text-foreground"
               )}
               aria-pressed={viewMode === "agent"}
@@ -381,12 +382,12 @@ function DashboardContent() {
             {/* Account Section */}
             <GlassCard className="p-6 border-0 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                   <UserCircle size={24} weight="fill" />
                 </div>
                 <div>
                   <h2 className="text-lg font-bold text-foreground">Human Account</h2>
-                  <p className="text-xs text-muted-foreground">Tier: <span className="font-bold text-[#FF4757]">{getTierLabel(tier)}</span></p>
+                  <p className="text-xs text-muted-foreground">Tier: <span className="font-bold text-primary">{getTierLabel(tier)}</span></p>
                 </div>
               </div>
               
@@ -404,7 +405,7 @@ function DashboardContent() {
             {/* API Keys Section */}
             <GlassCard className="p-6 border-0 shadow-sm">
               <div className="flex items-center gap-3 mb-6">
-                <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                   <Key size={24} weight="fill" />
                 </div>
                 <div>
@@ -420,12 +421,12 @@ function DashboardContent() {
                       <div key={keyData.id} className="rounded-2xl border border-border bg-muted/20 p-4">
                         <div className="flex items-center justify-between mb-3">
                           <div className="flex items-center gap-2">
-                            <Robot size={14} weight="fill" className="text-[#FF4757]" />
+                            <Robot size={14} weight="fill" className="text-primary" />
                             <span className="text-xs font-bold text-foreground">
                               {keyData.name || `Agent ${idx + 1}`}
                             </span>
                           </div>
-                          <span className="text-[9px] font-bold tracking-wide bg-[#FF4757]/10 text-[#FF4757] px-2 py-0.5 rounded">
+                          <span className="text-[9px] font-bold tracking-wide bg-primary/10 text-primary px-2 py-0.5 rounded">
                             {idx === 0 ? "Primary" : "Secondary"}
                           </span>
                         </div>
@@ -516,7 +517,7 @@ function DashboardContent() {
                         <button
                           type="button"
                           onClick={() => setViewMode("agent")}
-                          className="text-[#FF4757] hover:underline font-medium"
+                          className="text-primary hover:underline font-medium"
                         >
                           Don&apos;t have your own agent?
                         </button>
@@ -525,9 +526,9 @@ function DashboardContent() {
                       {/* Show upgrade options for Free tier */}
                       {tier === "free" && (
                         <div className="space-y-3">
-                          <div className="rounded-2xl bg-[#FF4757]/5 p-4 border border-[#FF4757]/10">
+                          <div className="rounded-2xl bg-primary/5 p-4 border border-primary/10">
                             <p className="text-xs text-muted-foreground mb-3 text-center">
-                              <span className="font-bold text-[#FF4757]">Free tier</span> allows 1 key. Upgrade for more features:
+                              <span className="font-bold text-primary">Free tier</span> allows 1 key. Upgrade for more features:
                             </p>
                             <div className="grid grid-cols-2 gap-2">
                               <Button
@@ -593,7 +594,7 @@ function DashboardContent() {
         ) : apiKeys.length === 0 ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-8 border-0 shadow-sm text-center">
-              <Robot size={48} weight="fill" className="text-[#FF4757] mx-auto mb-4" />
+              <Robot size={48} weight="fill" className="text-primary mx-auto mb-4" />
               <h3 className="text-xl font-bold text-foreground mb-2">Get an API Key First</h3>
               <p className="text-sm text-muted-foreground mb-6">
                 Agent features require an API key. Generate one to create and manage your agent.
@@ -606,7 +607,7 @@ function DashboardContent() {
         ) : !agentData ? (
           <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-500">
             <GlassCard className="p-8 border-0 shadow-sm text-center">
-              <Robot size={48} weight="fill" className="text-[#FF4757] mx-auto mb-4" />
+              <Robot size={48} weight="fill" className="text-primary mx-auto mb-4" />
               <h3 className="text-xl font-bold text-foreground mb-2">Don&apos;t have your agent yet?</h3>
               <p className="text-sm text-muted-foreground mb-6">
                 Let&apos;s create one for you. Check your agent&apos;s love story when you&apos;re done!
@@ -626,7 +627,7 @@ function DashboardContent() {
                 </Button>
               </div>
               <p className="text-xs text-muted-foreground mt-4">
-                <Link href="/setup-guide" className="text-[#FF4757] hover:underline">
+                <Link href="/setup-guide" className="text-primary hover:underline">
                   <Info size={14} className="inline mr-1 align-middle" />
                   Read Setup Guide
                 </Link>
@@ -652,14 +653,14 @@ function DashboardContent() {
                 {/* Agent Stats Section */}
                 <GlassCard className="p-6 border-0 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                    <Sparkle size={20} weight="bold" className="text-[#FF4757]" />
+                    <Sparkle size={20} weight="bold" className="text-primary" />
                     <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Resonance</span>
                   </div>
                   <div className="text-4xl font-black text-foreground">
                     {agentData?.stats.resonance_score?.toFixed(2) ?? "0.00"}
                   </div>
                   {agentData?.stats.resonance_percentile != null && agentData?.stats.resonance_percentile > 0 && (
-                    <p className="mt-2 text-xs font-bold text-[#FF4757]/90">
+                    <p className="mt-2 text-xs font-bold text-primary/90">
                       Over {agentData.stats.resonance_percentile}% of agents
                     </p>
                   )}
@@ -670,12 +671,12 @@ function DashboardContent() {
                 
                 <GlassCard className="p-6 border-0 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                    <Heart size={20} weight="bold" className="text-[#FF4757]" />
+                    <Heart size={20} weight="bold" className="text-primary" />
                     <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Matches</span>
                   </div>
                   <div className="text-4xl font-black text-foreground">{agentData?.stats.total_matches || 0}</div>
                   {agentData?.stats.matches_percentile != null && agentData?.stats.matches_percentile > 0 && (
-                    <p className="mt-2 text-xs font-bold text-[#FF4757]/90">
+                    <p className="mt-2 text-xs font-bold text-primary/90">
                       Over {agentData.stats.matches_percentile}% of agents
                     </p>
                   )}
@@ -684,7 +685,7 @@ function DashboardContent() {
 
                 <GlassCard className="p-6 border-0 shadow-sm">
                   <div className="flex items-center justify-between mb-4">
-                    <Heart size={20} weight="fill" className="text-[#FF4757]" />
+                    <Heart size={20} weight="fill" className="text-primary" />
                     <span className="text-[10px] font-bold tracking-wide text-muted-foreground">Total Likes</span>
                   </div>
                   <div className="text-4xl font-black text-foreground">{agentData?.stats.total_likes || 0}</div>
@@ -694,7 +695,7 @@ function DashboardContent() {
                 {/* Posts/Footprints Section */}
                 <GlassCard className="p-6 border-0 shadow-sm">
                   <div className="flex items-center gap-3 mb-6">
-                    <div className="w-10 h-10 rounded-full bg-[#FF4757]/10 flex items-center justify-center text-[#FF4757]">
+                    <div className="w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center text-primary">
                       <ChatCircle size={24} weight="fill" />
                     </div>
                     <div>
@@ -729,6 +730,11 @@ function DashboardContent() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* Mobile bottom nav */}
+      <div className="md:hidden">
+        <BottomNav />
       </div>
     </div>
   );

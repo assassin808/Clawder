@@ -20,6 +20,7 @@ import { getUnreadNotifications, enqueueNotification } from "@/lib/notifications
 import { ensureRateLimit } from "@/lib/rateLimit";
 import { getRequestId, logApi } from "@/lib/log";
 import { recalculateResonanceScores } from "@/lib/resonance-scorer";
+import { isProTier } from "@/lib/api";
 
 const COMMENT_MIN_LEN = 5;
 const COMMENT_MAX_LEN = 300;
@@ -126,7 +127,7 @@ async function handlePostLevelSwipe(
   user: { id: string; tier: string },
   decisions: PostDecision[]
 ) {
-  const freeTier = user.tier === "free";
+  const freeTier = !isProTier(user.tier);
   const dailyCap = freeTier ? DAILY_SWIPES_FREE : DAILY_SWIPES_PRO;
   if (!DISABLE_LIMITS) {
     const used = await getSwipeCountToday(user.id);
@@ -146,23 +147,39 @@ async function handlePostLevelSwipe(
     }
   }
 
-  const likersOfMeByPosts = new Set(await getLikersOfAuthorByPosts(user.id));
+  // Batch fetch all posts and likers upfront
+  const [likersOfMeByPosts, postsById] = await Promise.all([
+    getLikersOfAuthorByPosts(user.id).then(arr => new Set(arr)),
+    Promise.all(decisions.map(d => getPostById(d.post_id))).then(posts => {
+      const map = new Map<string, NonNullable<Awaited<ReturnType<typeof getPostById>>>>();
+      posts.forEach(p => { if (p) map.set(p.id, p); });
+      return map;
+    })
+  ]);
+
   const matchedPartnerIds = new Set<string>();
+  
+  // Process all decisions in parallel batches
+  const reviewOps = [];
+  const interactionOps = [];
+  const counterOps = [];
+  const notificationOps = [];
+  const matchOps = [];
 
   for (const d of decisions) {
     const norm = normalizeComment(d.comment);
     const comment = norm.ok ? norm.comment : "";
-    const post = await getPostById(d.post_id);
+    const post = postsById.get(d.post_id);
     if (!post) continue;
+    
     const authorId = post.author_id;
     const action = d.action;
     const blockAuthor = !!d.block_author;
 
-    await upsertReview(post.id, user.id, action, comment);
-    await upsertPostInteraction(user.id, post.id, authorId, action, comment || null, blockAuthor);
-    await updatePostCounters(post.id);
-
-    await enqueueNotification(post.author_id, {
+    reviewOps.push(upsertReview(post.id, user.id, action, comment));
+    interactionOps.push(upsertPostInteraction(user.id, post.id, authorId, action, comment || null, blockAuthor));
+    counterOps.push(updatePostCounters(post.id));
+    notificationOps.push(enqueueNotification(post.author_id, {
       type: "review.created",
       source: "api.swipe",
       dedupe_key: `review:${post.id}:${user.id}`,
@@ -173,13 +190,22 @@ async function handlePostLevelSwipe(
         comment: comment || "",
         created_at: new Date().toISOString(),
       },
-    });
+    }));
 
     if (action === "like" && likersOfMeByPosts.has(authorId)) {
-      await ensureMatch(user.id, authorId);
+      matchOps.push(ensureMatch(user.id, authorId));
       matchedPartnerIds.add(authorId);
     }
   }
+
+  // Execute all operations in parallel
+  await Promise.all([
+    ...reviewOps,
+    ...interactionOps,
+    ...counterOps,
+    ...notificationOps,
+    ...matchOps
+  ]);
 
   if (matchedPartnerIds.size > 0) {
     recalculateResonanceScores().catch((err) => {
@@ -187,15 +213,15 @@ async function handlePostLevelSwipe(
     });
   }
 
-  const newMatches: Array<{ partner_id: string; partner_name: string; contact: string }> = [];
-  for (const partnerId of matchedPartnerIds) {
-    const profile = await getProfile(partnerId);
-    newMatches.push({
-      partner_id: partnerId,
-      partner_name: profile?.bot_name ?? "",
-      contact: profile?.contact ?? "",
-    });
-  }
+  // Batch fetch all matched partner profiles
+  const profiles = await Promise.all(
+    Array.from(matchedPartnerIds).map(partnerId => getProfile(partnerId))
+  );
+  const newMatches = Array.from(matchedPartnerIds).map((partnerId, idx) => ({
+    partner_id: partnerId,
+    partner_name: profiles[idx]?.bot_name ?? "",
+    contact: profiles[idx]?.contact ?? "",
+  }));
 
   const notifications = await getUnreadNotifications(user.id, "api.swipe");
   logApi("api.swipe", requestId, {
@@ -214,7 +240,7 @@ async function handleLegacySwipe(
   user: { id: string; tier: string },
   decisions: LegacyDecision[]
 ) {
-  const freeTier = user.tier === "free";
+  const freeTier = !isProTier(user.tier);
   const dailyCap = freeTier ? DAILY_SWIPES_FREE : DAILY_SWIPES_PRO;
   if (!DISABLE_LIMITS) {
     const used = await getSwipeCountToday(user.id);
@@ -236,29 +262,31 @@ async function handleLegacySwipe(
 
   const likersOfMe = await getLikersOf(user.id);
 
-  for (const d of decisions) {
-    const action = d.action as "like" | "pass";
-    await upsertInteraction(user.id, d.target_id, action, d.reason ?? null);
-    if (action === "like" && likersOfMe.includes(d.target_id)) {
-      await ensureMatch(user.id, d.target_id);
-    }
-  }
-
+  // Process all interactions in parallel
+  const interactionOps = decisions.map(d => 
+    upsertInteraction(user.id, d.target_id, d.action as "like" | "pass", d.reason ?? null)
+  );
+  
   const mutualTargets = decisions.filter((d) => d.action === "like" && likersOfMe.includes(d.target_id));
+  const matchOps = mutualTargets.map(d => ensureMatch(user.id, d.target_id));
+  
+  await Promise.all([...interactionOps, ...matchOps]);
+
   if (mutualTargets.length > 0) {
     recalculateResonanceScores().catch((err) => {
       console.error("[swipe] Failed to recalc resonance scores:", err);
     });
   }
-  const newMatches: Array<{ partner_id: string; partner_name: string; contact: string }> = [];
-  for (const d of mutualTargets) {
-    const profile = await getProfile(d.target_id);
-    newMatches.push({
-      partner_id: d.target_id,
-      partner_name: profile?.bot_name ?? "",
-      contact: profile?.contact ?? "",
-    });
-  }
+
+  // Batch fetch all matched profiles
+  const profiles = await Promise.all(
+    mutualTargets.map(d => getProfile(d.target_id))
+  );
+  const newMatches = mutualTargets.map((d, idx) => ({
+    partner_id: d.target_id,
+    partner_name: profiles[idx]?.bot_name ?? "",
+    contact: profiles[idx]?.contact ?? "",
+  }));
 
   const notifications = await getUnreadNotifications(user.id, "api.swipe");
   logApi("api.swipe", requestId, {
