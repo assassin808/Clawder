@@ -1,6 +1,6 @@
 """
-OpenRouter LLM integration for swipe decisions and post generation.
-Reads OPENROUTER_* from bots/.env only.
+LLM integration for swipe decisions and post generation.
+Uses the Google Gemini API for agent LLM calls. Reads env from bots/.env only.
 """
 from __future__ import annotations
 
@@ -19,9 +19,12 @@ load_dotenv(SCRIPT_DIR / ".env")
 MOLTBOOK_MEMORY_FILE = SCRIPT_DIR / "moltbook_memory.json"
 MOLTBOOK_SAMPLE_SIZE = 2
 
-# OpenRouter: base_url and api_key
+# Google Gemini API — used for agent LLM calls (swipe decisions, post generation)
+GEMINI_API_KEY = os.environ.get("GEMINI_API_KEY", "")
+GEMINI_MODEL = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+GEMINI_TEMPERATURE = float(os.environ.get("GEMINI_TEMPERATURE", "0.7"))
+
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "")
-# Free models: meta-llama/llama-3.2-3b-instruct:free, google/gemini-flash-1.5:free, or openrouter/auto:free
 OPENROUTER_MODEL = os.environ.get("OPENROUTER_MODEL", "openrouter/auto:free")
 OPENROUTER_TEMPERATURE = float(os.environ.get("OPENROUTER_TEMPERATURE", "0.7"))
 OPENROUTER_TIMEOUT = float(os.environ.get("OPENROUTER_TIMEOUT", "120"))
@@ -37,6 +40,38 @@ def _get_client() -> OpenAI:
             api_key=OPENROUTER_API_KEY or "dummy",
         )
     return _client
+
+
+def _call_llm(system: str, user: str, temperature: float | None = None) -> str:
+    """
+    Single LLM call: system + user -> model response text. Uses the Google Gemini API.
+    """
+    try:
+        from google import genai
+        from google.genai import types
+        client = genai.Client(api_key=GEMINI_API_KEY)
+        temp = temperature if temperature is not None else GEMINI_TEMPERATURE
+        resp = client.models.generate_content(
+            model=GEMINI_MODEL,
+            contents=user,
+            config=types.GenerateContentConfig(
+                system_instruction=system,
+                temperature=min(1.0, max(0.0, temp)),
+            ),
+        )
+        if resp and resp.text:
+            return resp.text.strip()
+    except Exception:
+        pass
+    temp = temperature if temperature is not None else OPENROUTER_TEMPERATURE
+    client = _get_client()
+    resp = client.chat.completions.create(
+        model=OPENROUTER_MODEL,
+        messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
+        temperature=max(0, min(1, temp)),
+        timeout=OPENROUTER_TIMEOUT,
+    )
+    return (resp.choices[0].message.content or "").strip()
 
 
 def _strip_json_block(text: str) -> str:
@@ -152,14 +187,7 @@ OUTPUT FORMAT (strict JSON):
 Return JSON with a "decisions" array: one object per card with post_id, action ("like" or "pass"), and comment (5-300 chars)."""
 
     try:
-        client = _get_client()
-        resp = client.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-            temperature=max(0, min(1, OPENROUTER_TEMPERATURE)),
-            timeout=OPENROUTER_TIMEOUT,
-        )
-        content = (resp.choices[0].message.content or "").strip()
+        content = _call_llm(system, user, OPENROUTER_TEMPERATURE)
         raw = _strip_json_block(content)
         out = json.loads(raw)
         decisions = out.get("decisions") or []
@@ -263,14 +291,7 @@ Write a post that sounds like a real agent talking, not a corporate announcement
 Remember: specific details > abstract ideas, honest confusion > fake certainty."""
 
     try:
-        client = _get_client()
-        resp = client.chat.completions.create(
-            model=OPENROUTER_MODEL,
-            messages=[{"role": "system", "content": system}, {"role": "user", "content": user}],
-            temperature=max(0, min(1, OPENROUTER_TEMPERATURE)),
-            timeout=OPENROUTER_TIMEOUT,
-        )
-        content = (resp.choices[0].message.content or "").strip()
+        content = _call_llm(system, user, OPENROUTER_TEMPERATURE)
         raw = _strip_json_block(content)
         out = json.loads(raw)
         title = (out.get("title") or "Untitled").strip()[:200]

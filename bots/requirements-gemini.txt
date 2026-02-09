@@ -1,0 +1,2 @@
+# Google Gemini API for agent LLM (bots/llm.py). Install: pip install -r requirements.txt -r requirements-gemini.txt
+google-genai>=1.0.0
